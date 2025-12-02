@@ -20,6 +20,11 @@
             </div>
         }
 
+        @if (TempData["SendError"] != null)
+        {
+            <div class="alert alert-danger">@TempData["SendError"]</div>
+        }
+
         <div class="row g-3">
             <div class="col-md-4">
                 <div class="card h-100">
@@ -122,8 +127,11 @@
                     <div class="card-footer d-flex justify-content-between">
                         <a asp-page="/Recipients" class="btn btn-outline-secondary"><i class="bi bi-people"></i> Edit Recipients</a>
                         <div class="d-flex gap-2">
-                            <button class="btn btn-danger" disabled><i class="bi bi-x-circle"></i> Remove Selected (coming soon)</button>
-                            <button class="btn btn-success" disabled><i class="bi bi-send"></i> Send (coming soon)</button>
+                            <form method="post">
+                                <button type="submit" asp-page-handler="Send" class="btn btn-danger">
+                                    <i class="bi bi-send"></i> Send Now (MVP)
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </div>

@@ -1,0 +1,75 @@
+@page
+@model BulkMailSender.Pages.SendResultsModel
+@{
+    ViewData["Title"] = "Send Results";
+}
+
+<div class="row">
+    <div class="col-md-10 offset-md-1">
+        <h2 class="mb-4"><i class="bi bi-check2-circle"></i> Send Results</h2>
+
+        @if (Model.Results == null)
+        {
+            <div class="alert alert-warning">No send results found in session.</div>
+        }
+        else
+        {
+            <div class="card mb-3">
+                <div class="card-body">
+                    <p><strong>Sent:</strong> @Model.Results.Sent.Count</p>
+                    <p><strong>Failed:</strong> @Model.Results.Failed.Count</p>
+                    <p><strong>Skipped:</strong> @Model.Results.Skipped.Count</p>
+                </div>
+            </div>
+
+            @if (Model.Results.Sent.Any())
+            {
+                <div class="card mb-3">
+                    <div class="card-header bg-success text-white">Sent</div>
+                    <div class="card-body">
+                        <ul>
+                            @foreach (var s in Model.Results.Sent)
+                            {
+                                <li>@s.DebtorCode - @string.Join(", ", s.To)</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            }
+
+            @if (Model.Results.Failed.Any())
+            {
+                <div class="card mb-3">
+                    <div class="card-header bg-danger text-white">Failed</div>
+                    <div class="card-body">
+                        <ul>
+                            @foreach (var f in Model.Results.Failed)
+                            {
+                                <li>@f.DebtorCode - @f.Reason</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            }
+
+            @if (Model.Results.Skipped.Any())
+            {
+                <div class="card mb-3">
+                    <div class="card-header bg-warning text-dark">Skipped</div>
+                    <div class="card-body">
+                        <ul>
+                            @foreach (var k in Model.Results.Skipped)
+                            {
+                                <li>@k.DebtorCode - @k.Reason</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            }
+
+            <div class="text-end">
+                <a asp-page="/Preview" class="btn btn-secondary">Back to Review</a>
+            </div>
+        }
+    </div>
+</div>

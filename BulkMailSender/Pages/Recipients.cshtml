@@ -4,32 +4,179 @@
     ViewData["Title"] = "Upload Recipients";
 }
 
+<style>
+    .recipients-scroll-box { max-height: 500px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: .5rem; padding: 1rem; background: #ffffff; }
+    .recipients-scroll-box::-webkit-scrollbar { width: 10px; }
+    .recipients-scroll-box::-webkit-scrollbar-track { background: #f8f9fa; }
+    .recipients-scroll-box::-webkit-scrollbar-thumb { background: #c1c7ce; border-radius: 5px; }
+    .recipients-scroll-box::-webkit-scrollbar-thumb:hover { background: #a0a6ac; }
+</style>
+
 <div class="row">
-    <div class="col-md-8 offset-md-2">
+    <div class="col-md-10 offset-md-1">
         <h2 class="mb-4">
             <i class="bi bi-people"></i> Upload Recipients List
         </h2>
 
-        @if (Model.HasUploadData)
-        {
-            <div class="alert alert-success">
-                <i class="bi bi-check-circle"></i> Attachments uploaded successfully! Ready to proceed.
-            </div>
-        }
-        else
+        @if (!Model.HasUploadData)
         {
             <div class="alert alert-warning">
-                <i class="bi bi-exclamation-triangle"></i> No upload data found. Please upload attachments first.
+                <i class="bi bi-exclamation-triangle"></i> No attachment upload found. Please <a asp-page="/Upload">upload attachments</a> first.
             </div>
         }
 
-        <div class="alert alert-info">
-            <h5><i class="bi bi-info-circle"></i> Coming Soon</h5>
-            <p>This page will allow you to upload a CSV or Excel file containing recipient information (Debtor Code, Email, Name, etc.)</p>
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Accepted Formats</h5>
+                <ul>
+                    <li>CSV (Google Contacts export supported)</li>
+                    <li>Columns include:
+                        <ul>
+                            <li><strong>First Name</strong> (Debtor Code)</li>
+                            <li><strong>Organization Name</strong></li>
+                            <li><strong>Notes</strong></li>
+                            <li><strong>E-mail n - Value</strong> + <strong>E-mail n - Type/Label</strong> (n = 1..N)</li>
+                        </ul>
+                    </li>
+                </ul>
+                <div class="alert alert-info">
+                    <strong>Email Label values:</strong> Work ? TO, View ? CC, Private ? BCC (others normalized).
+                </div>
+            </div>
         </div>
 
-        <a asp-page="/Upload" class="btn btn-secondary">
-            <i class="bi bi-arrow-left"></i> Back to Upload
-        </a>
+        <form method="post" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label for="recipientsFile" class="form-label fw-bold">Select Recipients CSV</label>
+                <input type="file" class="form-control" id="recipientsFile" name="recipientsFile" accept=".csv" required />
+                @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+                {
+                    <div class="text-danger mt-2">@Model.ErrorMessage</div>
+                }
+            </div>
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-upload"></i> Upload and Parse</button>
+            </div>
+        </form>
+
+        @if (Model.ParseSummary != null)
+        {
+            <div class="card mt-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Parsing Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <h3 class="text-primary">@Model.ParseSummary.TotalRows</h3>
+                            <p class="text-muted">Rows</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h3 class="text-success">@Model.ParseSummary.ValidRows</h3>
+                            <p class="text-muted">Valid Recipients</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h3 class="text-warning">@Model.ParseSummary.InvalidRows</h3>
+                            <p class="text-muted">Rows w/ No Valid Email</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h3 class="text-info">@Model.Recipients.Count</h3>
+                            <p class="text-muted">Total Recipients</p>
+                        </div>
+                    </div>
+                    @if (Model.Errors.Any())
+                    {
+                        <div class="alert alert-warning mt-3">
+                            <h6 class="mb-2"><i class="bi bi-exclamation-triangle"></i> Errors (@Model.Errors.Count)</h6>
+                            <ul class="mb-0">
+                                @foreach (var err in Model.Errors.Take(20))
+                                {
+                                    <li>@err</li>
+                                }
+                                @if (Model.Errors.Count > 20)
+                                {
+                                    <li class="text-muted">... and @(Model.Errors.Count - 20) more</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        @if (Model.Recipients.Any())
+        {
+            var grouped = Model.Recipients
+                .GroupBy(r => r.DebtorCode)
+                .OrderBy(g => g.Key)
+                .ToList();
+
+            <div class="card mt-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Recipients (Grouped by Debtor Code)</h5>
+                    <small class="text-muted">@grouped.Count groups</small>
+                </div>
+                <div class="card-body p-0">
+                    <div class="recipients-scroll-box">
+                        <div class="accordion" id="recipientsAccordion">
+                            @for (int i = 0; i < grouped.Count; i++)
+                            {
+                                var g = grouped[i];
+                                var first = g.First();
+                                var accId = $"debtorGroup{i}";
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header" id="headingRec@(i)">
+                                        <button class="accordion-button @(i==0?"":"collapsed")" type="button" data-bs-toggle="collapse" data-bs-target="#@accId" aria-expanded="@(i==0?"true":"false")" aria-controls="@accId">
+                                            <strong>@g.Key</strong>
+                                            <span class="ms-3 badge bg-primary">@g.Count() email(s)</span>
+                                            @if (!string.IsNullOrWhiteSpace(first.OrganizationName))
+                                            {
+                                                <span class="ms-2 text-muted">@first.OrganizationName</span>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(first.Notes))
+                                            {
+                                                <span class="ms-2 badge bg-info">@first.Notes</span>
+                                            }
+                                        </button>
+                                    </h2>
+                                    <div id="@accId" class="accordion-collapse collapse @(i==0?"show":"")" aria-labelledby="headingRec@(i)" data-bs-parent="#recipientsAccordion">
+                                        <div class="accordion-body">
+                                            <table class="table table-sm align-middle">
+                                                <thead>
+                                                    <tr>
+                                                        <th style="width:40%">Email</th>
+                                                        <th style="width:15%">Label</th>
+                                                        <th style="width:25%">Organization</th>
+                                                        <th style="width:20%">Notes</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var r in g)
+                                                    {
+                                                        <tr>
+                                                            <td><i class="bi bi-envelope"></i> @r.Email</td>
+                                                            <td>
+                                                                @if (r.Label == BulkMailSender.Models.EmailLabel.To) { <span class="badge bg-success">TO</span> }
+                                                                else if (r.Label == BulkMailSender.Models.EmailLabel.Cc) { <span class="badge bg-warning text-dark">CC</span> }
+                                                                else { <span class="badge bg-secondary">BCC</span> }
+                                                            </td>
+                                                            <td>@r.OrganizationName</td>
+                                                            <td>@r.Notes</td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer text-end">
+                    <a asp-page="/Template" class="btn btn-success"><i class="bi bi-arrow-right-circle"></i> Next: Configure Template</a>
+                </div>
+            </div>
+        }
     </div>
 </div>

@@ -47,6 +47,7 @@ public class SettingsModel : PageModel
 
     public IActionResult OnPostUseDefault()
     {
+        ModelState.Clear(); // Clear ModelState so form shows new values
         LoadDefaultSettings();
         SaveToSession();
         TestResult = "Default Gmail settings loaded. Click 'Test Connection' to verify.";
@@ -56,6 +57,7 @@ public class SettingsModel : PageModel
 
     public IActionResult OnPostUsePaperCut()
     {
+        ModelState.Clear(); // Clear ModelState so form shows new values
         LoadPaperCutSettings();
         SaveToSession();
         TestResult = "PaperCut (debugging) settings loaded. Make sure PaperCut SMTP is running on localhost:25.";

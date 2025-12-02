@@ -1,0 +1,177 @@
+@page
+@model BulkMailSender.Pages.TemplateModel
+@{
+    ViewData["Title"] = "Configure Email Template";
+}
+
+<style>
+    .template-preview { white-space: pre-wrap; border: 1px solid #dee2e6; border-radius: .5rem; padding: 1rem; background: #fff; }
+    .sticky-reminder { position: sticky; top: 0; z-index: 10; }
+    .placeholder-pill { display:inline-block; padding:.375rem .5rem; border:1px dashed #6c757d; border-radius:.25rem; color:#6c757d; background:#f8f9fa; }
+</style>
+
+<div class="row">
+    <div class="col-md-10 offset-md-1">
+        <h2 class="mb-4"><i class="bi bi-envelope"></i> Configure Email Template</h2>
+
+        @if (!Model.HasUploadData)
+        {
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i> No attachment upload found. Please <a asp-page="/Upload">upload attachments</a> and recipients first.
+            </div>
+        }
+
+        <div class="alert alert-info sticky-reminder">
+            <strong>Reminder:</strong> Set the period (e.g., OCT 2025). This is easy to forget.
+        </div>
+
+        <form method="post">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Template Settings</h5>
+                    <small class="text-muted">SOA/INV or Overdue</small>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Template Type</label>
+                            <select class="form-select" asp-for="TemplateType">
+                                <option value="SoaInv">SOA &amp; Invoice</option>
+                                <option value="Overdue">Overdue</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Period (e.g., OCT 2025)</label>
+                            <input class="form-control" asp-for="Period" placeholder="OCT 2025" />
+                            <div class="form-text">Make sure this matches the attachments period.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Select Debtor Code (for preview)</label>
+                            <select class="form-select" asp-for="DebtorCode" id="debtorCodeSelect">
+                                <option value="">-- Select a debtor --</option>
+                                @foreach (var d in Model.AvailableDebtorCodes)
+                                {
+                                    <option value="@d.DebtorCode">@d.DebtorCode (@d.EmailCount email(s))</option>
+                                }
+                            </select>
+                            <div class="form-text">Choose a debtor to preview their specific details.</div>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(Model.SelectedOrganizationName) || !string.IsNullOrWhiteSpace(Model.SelectedNotes))
+                    {
+                        <div class="row g-3 mt-2">
+                            <div class="col-12">
+                                <div class="alert alert-light border">
+                                    <h6 class="mb-2">Selected Debtor Info:</h6>
+                                    <p class="mb-1"><strong>Debtor Code:</strong> @Model.DebtorCode</p>
+                                    <p class="mb-1"><strong>Organization:</strong> @Model.SelectedOrganizationName</p>
+                                    <p class="mb-0"><strong>Notes:</strong> @Model.SelectedNotes</p>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold">Organization Name</label>
+                            <div class="placeholder-pill">{organization name}</div>
+                            <div class="form-text">Driven by recipients CSV; not editable here.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Notes</label>
+                            <div class="placeholder-pill">{notes}</div>
+                            <div class="form-text">Driven by recipients CSV; used in Overdue body.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer d-flex justify-content-end gap-2">
+                    <button type="submit" class="btn btn-primary" asp-page-handler="Preview"><i class="bi bi-eye"></i> Preview</button>
+                    <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Save Template</button>
+                    <a asp-page="/Preview" class="btn btn-outline-secondary"><i class="bi bi-clipboard-check"></i> Go to Review</a>
+                </div>
+            </div>
+        </form>
+
+        @if (!string.IsNullOrWhiteSpace(Model.SubjectPreview))
+        {
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white"><h5 class="mb-0">Subject Preview</h5></div>
+                <div class="card-body">
+                    <div class="template-preview">@Model.SubjectPreview</div>
+                    <div class="mt-3 text-end">
+                        <a asp-page="/Preview" class="btn btn-outline-secondary"><i class="bi bi-clipboard-check"></i> Review Before Sending</a>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Model.BodyPreview))
+        {
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white"><h5 class="mb-0">Body Preview</h5></div>
+                <div class="card-body">
+                    <div class="template-preview">@Model.BodyPreview</div>
+                    <div class="mt-3 text-end">
+                        <a asp-page="/Preview" class="btn btn-outline-secondary"><i class="bi bi-clipboard-check"></i> Review Before Sending</a>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="card">
+            <div class="card-header"><h5 class="mb-0">Default Bodies</h5></div>
+            <div class="card-body">
+                <h6>SOA &amp; Invoice</h6>
+<pre class="template-preview">Good day to you
+The attached statement reflects your account balance.
+
+Please check the statement provided.
+
+If you have any questions regarding this statement or any clarification needs, please contact the ATP Careline 018-7864855
+
+Any overdue payment may lead to service interruption.
+
+The below are the bank details for your payment purpose:-
+Company Name: ATP SALES &amp; SERVICES SDN BHD
+Bank Name: Affin Bank Bhd
+Bank Account Number: 10675 0000 898
+Email (Banking Slip): &lt;atgroupoperation02@gmail.com&gt;
+
+***************************************************************************
+
+This is an auto-generated email, please DO NOT REPLY. Any replies to this
+email will be disregarded.
+
+***************************************************************************</pre>
+                <h6 class="mt-4">Overdue</h6>
+<pre class="template-preview">Good day to you
+
+Kindly find the attached statement of account and invoice.
+
+According to our payment term with your company, your are requested to make the payment within {notes} after you receive the monthly statement of account. Please clear and remit, if any. If you have made the payment, please let me know and I will update accordingly
+
+Bearing in mind, as company policy
+
+ATP shall be entitled, at its absolute discretion, to suspend Customer's account and hold service call until overdue outstanding has been fully paid.
+
+Thank you
+
+PIC name: Ms. Ika
+Email: atgroupoperation02@gmail.com
+Direct Line: 018-7864855</pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.getElementById('debtorCodeSelect').addEventListener('change', function() {
+            if (this.value) {
+                // Auto-submit form to preview with selected debtor
+                document.querySelector('button[asp-page-handler="Preview"]').click();
+            }
+        });
+    </script>
+}

@@ -1,0 +1,35 @@
+@page
+@model BulkMailSender.Pages.RecipientsModel
+@{
+    ViewData["Title"] = "Upload Recipients";
+}
+
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <h2 class="mb-4">
+            <i class="bi bi-people"></i> Upload Recipients List
+        </h2>
+
+        @if (Model.HasUploadData)
+        {
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle"></i> Attachments uploaded successfully! Ready to proceed.
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i> No upload data found. Please upload attachments first.
+            </div>
+        }
+
+        <div class="alert alert-info">
+            <h5><i class="bi bi-info-circle"></i> Coming Soon</h5>
+            <p>This page will allow you to upload a CSV or Excel file containing recipient information (Debtor Code, Email, Name, etc.)</p>
+        </div>
+
+        <a asp-page="/Upload" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Upload
+        </a>
+    </div>
+</div>

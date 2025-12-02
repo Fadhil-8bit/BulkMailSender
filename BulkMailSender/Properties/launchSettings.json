@@ -1,0 +1,48 @@
+{
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_Kestrel__Limits__MaxRequestBodySize": "524288000",
+        "ASPNETCORE_Kestrel__Limits__KeepAliveTimeout": "00:10:00"
+      },
+      "dotnetRunMessages": true,
+      "applicationUrl": "http://localhost:5003"
+    },
+    "https": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_Kestrel__Limits__MaxRequestBodySize": "524288000",
+        "ASPNETCORE_Kestrel__Limits__KeepAliveTimeout": "00:10:00"
+      },
+      "dotnetRunMessages": true,
+      "applicationUrl": "https://localhost:7072;http://localhost:5003"
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker",
+      "launchBrowser": true,
+      "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}",
+      "environmentVariables": {
+        "ASPNETCORE_HTTPS_PORTS": "8081",
+        "ASPNETCORE_HTTP_PORTS": "8080",
+        "ASPNETCORE_Kestrel__Limits__MaxRequestBodySize": "524288000",
+        "ASPNETCORE_Kestrel__Limits__KeepAliveTimeout": "00:10:00"
+      },
+      "publishAllPorts": true,
+      "useSSL": false
+    }
+  },
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "iisSettings": {
+    "windowsAuthentication": false,
+    "anonymousAuthentication": true,
+    "iisExpress": {
+      "applicationUrl": "http://localhost:5003",
+      "sslPort": 0
+    }
+  }
+}

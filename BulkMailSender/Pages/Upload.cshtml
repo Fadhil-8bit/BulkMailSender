@@ -18,6 +18,7 @@
     .debtor-scroll-box::-webkit-scrollbar-thumb { background: #c1c7ce; border-radius: 5px; }
     .debtor-scroll-box::-webkit-scrollbar-thumb:hover { background: #a0a6ac; }
     .accordion-item { background: #fff; }
+    .bg-warning-dark { background-color: #ff8c00 !important; color: white !important; }
 </style>
 
 <!-- Loading Overlay -->
@@ -37,40 +38,6 @@
         <h2 class="mb-4">
             <i class="bi bi-cloud-upload"></i> Upload Bulk Email Attachments
         </h2>
-
-        <div class="card shadow-sm mb-4">
-            <div class="card-body">
-                <h5 class="card-title">File Naming Convention</h5>
-                <p class="card-text">
-                    Files inside the ZIP must follow this naming pattern:
-                </p>
-                <div class="alert alert-info">
-                    <strong>Format:</strong> <code>{DebtorCode} {DocumentType} {CustomCode}.extension</code>
-                </div>
-                <ul>
-                    <li><code>DEBT001 INV 12345.pdf</code> - Invoice with custom code 12345</li>
-                    <li><code>DEBT001 SOA 98765.pdf</code> - Statement of Account</li>
-                    <li><code>DEBT001 OD 456789.pdf</code> - Overdue Notice</li>
-                    <li><code>ABC123 OTHER 7890.xlsx</code> - Other documents</li>
-                </ul>
-                <p class="text-muted small">
-                    <strong>Rules:</strong>
-                    <br>• Debtor Code: Any alphanumeric code
-                    <br>• Document Type: INV, SOA, OD, or OTHER
-                    <br>• Custom Code: 4 to 6 digit number
-                    <br>• Separated by single spaces
-                </p>
-            </div>
-        </div>
-
-        <div class="card shadow mb-4">
-            <div class="card-body">
-                <h5 class="card-title mb-3">Upload Settings</h5>
-                <p class="mb-2"><i class="bi bi-info-circle text-primary"></i> <strong>Maximum file size:</strong> 500 MB</p>
-                <p class="mb-0"><i class="bi bi-check-circle text-success"></i> <strong>Supported format:</strong> ZIP files only</p>
-                <p class="mb-0 mt-2"><i class="bi bi-clock text-warning"></i> <strong>Large files may take 5-10 minutes to upload</strong></p>
-            </div>
-        </div>
 
         <form method="post" enctype="multipart/form-data" id="uploadForm">
             <div class="mb-3">
@@ -114,15 +81,15 @@
                     <div class="row text-center">
                         <div class="col-md-3">
                             <h3 class="text-primary">@Model.UploadResult.TotalFiles</h3>
-                            <p class="text-muted">Total Files</p>
+                            <p class="text-muted">Total Attachments</p>
                         </div>
                         <div class="col-md-3">
                             <h3 class="text-success">@Model.UploadResult.CategorizedFiles</h3>
-                            <p class="text-muted">Categorized</p>
+                            <p class="text-muted">Debtor Attachment Success</p>
                         </div>
                         <div class="col-md-3">
-                            <h3 class="text-warning">@Model.UploadResult.UncategorizedFiles</h3>
-                            <p class="text-muted">Uncategorized</p>
+                            <h3 class="text-danger">@Model.UploadResult.UncategorizedFiles</h3>
+                            <p class="text-muted">Debtor Attachment Failed</p>
                         </div>
                         <div class="col-md-3">
                             <h3 class="text-info">@Model.UploadResult.DebtorAttachments.Count</h3>
@@ -136,7 +103,7 @@
             {
                 <div class="card mt-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Debtor Attachments (@Model.UploadResult.DebtorAttachments.Count)</h5>
+                        <h5 class="mb-0">Debtor Attachments Success (@Model.UploadResult.DebtorAttachments.Count)</h5>
                         <small class="text-muted">Expand items to view file details</small>
                     </div>
                     <div class="card-body p-0">
@@ -152,12 +119,12 @@
                                                     data-bs-toggle="collapse" data-bs-target="#@accordionId" 
                                                     aria-expanded="@(i == 0 ? "true" : "false")" aria-controls="@accordionId">
                                                 <strong>@debtor.DebtorCode</strong>
-                                                <span class="ms-3 badge bg-primary">@debtor.TotalFileCount files</span>
+                                                <span class="ms-3 badge bg-secondary">@debtor.TotalFileCount files</span>
                                                 <span class="ms-2 badge bg-secondary">@debtor.TotalFileSizeFormatted</span>
                                                 <span class="ms-2">
                                                     @if (debtor.InvoiceFiles.Any()) { <span class="badge bg-success me-1">INV: @debtor.InvoiceFiles.Count</span> }
-                                                    @if (debtor.StatementFiles.Any()) { <span class="badge bg-info me-1">SOA: @debtor.StatementFiles.Count</span> }
-                                                    @if (debtor.OverdueFiles.Any()) { <span class="badge bg-warning me-1">OD: @debtor.OverdueFiles.Count</span> }
+                                                    @if (debtor.StatementFiles.Any()) { <span class="badge bg-primary me-1">SOA: @debtor.StatementFiles.Count</span> }
+                                                    @if (debtor.OverdueFiles.Any()) { <span class="badge bg-warning-dark me-1">OD: @debtor.OverdueFiles.Count</span> }
                                                     @if (debtor.OtherFiles.Any()) { <span class="badge bg-dark">OTHER: @debtor.OtherFiles.Count</span> }
                                                 </span>
                                             </button>
@@ -183,7 +150,7 @@
 
                                                 @if (debtor.StatementFiles.Any())
                                                 {
-                                                    <h6 class="text-info"><i class="bi bi-file-earmark-spreadsheet"></i> Statement Files (@debtor.StatementFiles.Count)</h6>
+                                                    <h6 class="text-primary"><i class="bi bi-file-earmark-spreadsheet"></i> Statement Files (@debtor.StatementFiles.Count)</h6>
                                                     <ul class="list-group mb-3">
                                                         @foreach (var file in debtor.StatementFiles)
                                                         {
@@ -200,7 +167,7 @@
 
                                                 @if (debtor.OverdueFiles.Any())
                                                 {
-                                                    <h6 class="text-warning"><i class="bi bi-exclamation-triangle"></i> Overdue Files (@debtor.OverdueFiles.Count)</h6>
+                                                    <h6 style="color: #ff8c00;"><i class="bi bi-exclamation-triangle"></i> Overdue Files (@debtor.OverdueFiles.Count)</h6>
                                                     <ul class="list-group mb-3">
                                                         @foreach (var file in debtor.OverdueFiles)
                                                         {
@@ -249,15 +216,15 @@
 
             @if (Model.UploadResult.Errors.Any())
             {
-                <div class="card mt-4 border-warning">
-                    <div class="card-header bg-warning">
-                        <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Warnings (@Model.UploadResult.Errors.Count)</h5>
+                <div class="card mt-4 border-danger">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Debtor Attachment Failed (@Model.UploadResult.Errors.Count)</h5>
                     </div>
                     <div class="card-body">
                         <ul class="list-unstyled mb-0">
                             @foreach (var error in Model.UploadResult.Errors.Take(20))
                             {
-                                <li class="text-warning mb-1">
+                                <li class="text-danger mb-1">
                                     <i class="bi bi-x-circle"></i> @error
                                 </li>
                             }
@@ -272,6 +239,42 @@
                 </div>
             }
         }
+
+        <!-- Moved to bottom: File Naming Convention -->
+        <div class="card shadow-sm mb-4 mt-5">
+            <div class="card-body">
+                <h5 class="card-title">File Naming Convention</h5>
+                <p class="card-text">
+                    Files inside the ZIP must follow this naming pattern:
+                </p>
+                <div class="alert alert-info">
+                    <strong>Format:</strong> <code>{DebtorCode} {DocumentType} {CustomCode}.extension</code>
+                </div>
+                <ul>
+                    <li><code>DEBT001 INV 12345.pdf</code> - Invoice with custom code 12345</li>
+                    <li><code>DEBT001 SOA 98765.pdf</code> - Statement of Account</li>
+                    <li><code>DEBT001 OD 456789.pdf</code> - Overdue Notice</li>
+                    <li><code>ABC123 OTHER 7890.xlsx</code> - Other documents</li>
+                </ul>
+                <p class="text-muted small">
+                    <strong>Rules:</strong>
+                    <br>• Debtor Code: Any alphanumeric code
+                    <br>• Document Type: INV, SOA, OD, or OTHER
+                    <br>• Custom Code: 4 to 6 digit number
+                    <br>• Separated by single spaces
+                </p>
+            </div>
+        </div>
+
+        <!-- Moved to bottom: Upload Settings -->
+        <div class="card shadow mb-4">
+            <div class="card-body">
+                <h5 class="card-title mb-3">Upload Settings</h5>
+                <p class="mb-2"><i class="bi bi-info-circle text-primary"></i> <strong>Maximum file size:</strong> 500 MB</p>
+                <p class="mb-0"><i class="bi bi-check-circle text-success"></i> <strong>Supported format:</strong> ZIP files only</p>
+                <p class="mb-0 mt-2"><i class="bi bi-clock text-warning"></i> <strong>Large files may take 5-10 minutes to upload</strong></p>
+            </div>
+        </div>
     </div>
 </div>
 

@@ -25,6 +25,9 @@ public class RecipientsModel : PageModel
     // Errors encountered during parsing
     public List<string> Errors { get; set; } = new();
 
+    // Debtor codes that fail style validation
+    public List<string> InvalidDebtorCodes { get; set; } = new();
+
     public ParseSummary? ParseSummary { get; set; }
 
     public string? ErrorMessage { get; set; }
@@ -56,6 +59,14 @@ public class RecipientsModel : PageModel
             {
                 _logger.LogWarning(ex, "Failed to deserialize recipients from session");
             }
+        }
+
+        // Load invalid debtor codes from session (if previously parsed)
+        var invalidJson = HttpContext.Session.GetString("InvalidDebtorCodes");
+        if (!string.IsNullOrEmpty(invalidJson))
+        {
+            try { InvalidDebtorCodes = JsonSerializer.Deserialize<List<string>>(invalidJson) ?? new List<string>(); }
+            catch { }
         }
     }
 
@@ -119,6 +130,10 @@ public class RecipientsModel : PageModel
             int validRecipients = 0; // per-email records created
             int invalidRows = 0;
             var parsed = new List<DebtorRecipient>();
+            var invalidDebtors = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // debtor code regex: uppercase letters/digits only on both sides of a single hyphen
+            var debtorStyleRegex = new Regex("^[A-Z0-9]+-[A-Z0-9]+$", RegexOptions.Compiled);
 
             while (!reader.EndOfStream)
             {
@@ -136,8 +151,15 @@ public class RecipientsModel : PageModel
                 if (string.IsNullOrWhiteSpace(debtor))
                 {
                     invalidRows++;
-                    Errors.Add($"Row {totalRows}: Missing Debtor Code (First Name)." );
+                    Errors.Add($"Row {totalRows}: Missing Debtor Code (First Name).");
                     continue;
+                }
+
+                // Debtor code style validation: exactly one hyphen and uppercase alphanumeric groups
+                var debtorForMatch = debtor.Trim().ToUpperInvariant();
+                if (!debtorStyleRegex.IsMatch(debtorForMatch))
+                {
+                    invalidDebtors.Add(debtor.Trim());
                 }
 
                 int createdForRow = 0;
@@ -198,10 +220,13 @@ public class RecipientsModel : PageModel
                 InvalidRows = invalidRows
             };
 
+            InvalidDebtorCodes = invalidDebtors.OrderBy(x => x).ToList();
+
             // Store in session
             HttpContext.Session.SetString("Recipients", JsonSerializer.Serialize(Recipients));
+            HttpContext.Session.SetString("InvalidDebtorCodes", JsonSerializer.Serialize(InvalidDebtorCodes));
 
-            _logger.LogInformation($"Parsed recipients: Rows={totalRows}, Recipients={validRecipients}, InvalidRows={invalidRows}");
+            _logger.LogInformation($"Parsed recipients: Rows={totalRows}, Recipients={validRecipients}, InvalidRows={invalidRows}, InvalidDebtorCodes={InvalidDebtorCodes.Count}");
         }
         catch (Exception ex)
         {
@@ -341,6 +366,14 @@ public class RecipientsModel : PageModel
         {
             return false;
         }
+    }
+
+    // Debtor code must have exactly one hyphen and uppercase alphanumeric on both sides
+    private static bool IsValidDebtorCodeStyle(string debtor)
+    {
+        if (string.IsNullOrWhiteSpace(debtor)) return false;
+        debtor = debtor.Trim().ToUpperInvariant();
+        return Regex.IsMatch(debtor, "^[A-Z0-9]+-[A-Z0-9]+$");
     }
 }
 

@@ -80,6 +80,9 @@ public class ZipExtractionService : IZipExtractionService
             // Categorize files by debtor code
             var debtorDict = new Dictionary<string, DebtorAttachment>(StringComparer.OrdinalIgnoreCase);
 
+            // Debtor code style regex: uppercase alphanumeric with single hyphen
+            var debtorStyleRegex = new Regex("^[A-Z0-9]+-[A-Z0-9]+$", RegexOptions.Compiled);
+
             foreach (var filePath in allFiles)
             {
                 var fileName = Path.GetFileNameWithoutExtension(filePath);
@@ -87,15 +90,25 @@ public class ZipExtractionService : IZipExtractionService
                 var fullFileName = Path.GetFileName(filePath);
 
                 // Pattern: {DebtorCode} {DocType} {CustomCode}
-                // Example: "DEBT001 INV 12345" or "ABC123 OTHER 987654"
+                // Example: "3000-AT502 INV 12345" or "3000-AT015 OTHER 987654"
                 // Supports: INV, SOA, OD, OTHER (for other documents)
                 var match = Regex.Match(fileName, @"^(.+?)\s+(INV|SOA|OD|OTHER)\s+(\d{4,6})$", RegexOptions.IgnoreCase);
 
                 if (match.Success)
                 {
-                    var debtorCode = match.Groups[1].Value.Trim();
+                    var debtorCodeRaw = match.Groups[1].Value.Trim();
+                    var debtorCode = debtorCodeRaw.ToUpperInvariant();
                     var docType = match.Groups[2].Value.ToUpperInvariant();
                     var customCode = match.Groups[3].Value;
+
+                    // Validate debtor code style
+                    if (!debtorStyleRegex.IsMatch(debtorCode))
+                    {
+                        result.UncategorizedFiles++;
+                        result.Errors.Add($"Invalid debtor code style in file '{fullFileName}': '{debtorCodeRaw}'. Expected format like 3000-AT502.");
+                        _logger.LogWarning("Invalid debtor code style: {Debtor} in file {File}", debtorCodeRaw, fullFileName);
+                        continue; // skip categorization for this file
+                    }
 
                     if (!debtorDict.ContainsKey(debtorCode))
                     {

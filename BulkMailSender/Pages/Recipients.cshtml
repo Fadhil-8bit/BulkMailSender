@@ -18,29 +18,6 @@
             <i class="bi bi-people"></i> Upload Recipients List
         </h2>
 
-        <div class="card shadow-sm mb-4">
-            <div class="card-body">
-                <h5 class="card-title">Accepted Formats</h5>
-                <ul>
-                    <li>CSV (Google Contacts export supported)</li>
-                    <li>Columns include:
-                        <ul>
-                            <li><strong>First Name</strong> (Debtor Code)</li>
-                            <li><strong>Organization Name</strong></li>
-                            <li><strong>Notes</strong></li>
-                            <li><strong>E-mail n - Value</strong> + <strong>E-mail n - Type/Label</strong> (n = 1..N)</li>
-                        </ul>
-                    </li>
-                </ul>
-                <div class="alert alert-info">
-                    <strong>Email Label values:</strong> Work ? TO, View ? CC, Private ? BCC (others normalized).
-                </div>
-                <div class="alert alert-light border mt-2">
-                    <i class="bi bi-arrow-right"></i> New flow: Upload recipients first, then upload attachments.
-                </div>
-            </div>
-        </div>
-
         <form method="post" enctype="multipart/form-data">
             <div class="mb-3">
                 <label for="recipientsFile" class="form-label fw-bold">Select Recipients CSV</label>
@@ -80,6 +57,25 @@
                             <p class="text-muted">Total Recipients</p>
                         </div>
                     </div>
+
+                    @if (Model.InvalidDebtorCodes.Any())
+                    {
+                        <div class="alert alert-danger mt-3">
+                            <h6 class="mb-2"><i class="bi bi-exclamation-octagon"></i> Invalid Debtor Code Style (@Model.InvalidDebtorCodes.Count)</h6>
+                            <p class="mb-2">Debtor codes must contain exactly one hyphen in the middle, e.g., <code>3000-AT502</code>.</p>
+                            <ul class="mb-0">
+                                @foreach (var code in Model.InvalidDebtorCodes.Take(50))
+                                {
+                                    <li><code>@code</code></li>
+                                }
+                                @if (Model.InvalidDebtorCodes.Count > 50)
+                                {
+                                    <li class="text-muted">... and @(Model.InvalidDebtorCodes.Count - 50) more</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+
                     @if (Model.Errors.Any())
                     {
                         <div class="alert alert-warning mt-3">
@@ -174,5 +170,29 @@
                 </div>
             </div>
         }
+
+        <!-- Accepted Formats moved to bottom -->
+        <div class="card shadow-sm mt-5">
+            <div class="card-body">
+                <h5 class="card-title">Accepted Formats</h5>
+                <ul>
+                    <li>CSV (Google Contacts export supported)</li>
+                    <li>Columns include:
+                        <ul>
+                            <li><strong>First Name</strong> (Debtor Code)</li>
+                            <li><strong>Organization Name</strong></li>
+                            <li><strong>Notes</strong></li>
+                            <li><strong>E-mail n - Value</strong> + <strong>E-mail n - Type/Label</strong> (n = 1..N)</li>
+                        </ul>
+                    </li>
+                </ul>
+                <div class="alert alert-info">
+                    <strong>Email Label values:</strong> Work ? TO, View ? CC, Private ? BCC (others normalized).
+                </div>
+                <div class="alert alert-light border mt-2">
+                    <i class="bi bi-arrow-right"></i> New flow: Upload recipients first, then upload attachments.
+                </div>
+            </div>
+        </div>
     </div>
 </div>

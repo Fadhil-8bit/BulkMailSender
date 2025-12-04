@@ -19,6 +19,9 @@
     .debtor-scroll-box::-webkit-scrollbar-thumb:hover { background: #a0a6ac; }
     .accordion-item { background: #fff; }
     .bg-warning-dark { background-color: #ff8c00 !important; color: white !important; }
+    .disabled-overlay { position: relative; }
+    .disabled-overlay::after { content: ""; position: absolute; inset: 0; background: rgba(255,255,255,0.6); border-radius: .5rem; display: none; }
+    .disabled-overlay.disabled::after { display: block; }
 </style>
 
 <!-- Loading Overlay -->
@@ -39,30 +42,41 @@
             <i class="bi bi-cloud-upload"></i> Upload Bulk Email Attachments
         </h2>
 
-        <form method="post" enctype="multipart/form-data" id="uploadForm">
-            <div class="mb-3">
-                <label for="zipFile" class="form-label fw-bold">Select ZIP File</label>
-                <input type="file" 
-                       class="form-control form-control-lg @(Model.UploadResult?.Success == false ? "is-invalid" : "")" 
-                       id="zipFile" 
-                       name="zipFile" 
-                       accept=".zip"
-                       required>
-                @if (Model.UploadResult?.Success == false)
-                {
-                    <div class="invalid-feedback">
-                        @Model.UploadResult.Message
-                    </div>
-                }
-                <div id="fileSizeInfo" class="form-text mt-2"></div>
+        @if (!Model.HasRecipients)
+        {
+            <div class="alert alert-warning">
+                <i class="bi bi-info-circle"></i> Please upload the recipients CSV first. Go to <a asp-page="/Recipients">Recipients</a>.
             </div>
+        }
 
-            <div class="d-grid gap-2">
-                <button type="submit" class="btn btn-primary btn-lg" id="uploadBtn">
-                    <i class="bi bi-upload"></i> Upload and Extract
-                </button>
-            </div>
-        </form>
+        <div class="@(Model.HasRecipients ? "" : "disabled-overlay disabled")">
+            <form method="post" enctype="multipart/form-data" id="uploadForm">
+                <fieldset @(Model.HasRecipients ? "" : "disabled")>
+                    <div class="mb-3">
+                        <label for="zipFile" class="form-label fw-bold">Select ZIP File</label>
+                        <input type="file" 
+                               class="form-control form-control-lg @(Model.UploadResult?.Success == false ? "is-invalid" : "")" 
+                               id="zipFile" 
+                               name="zipFile" 
+                               accept=".zip"
+                               required>
+                        @if (Model.UploadResult?.Success == false)
+                        {
+                            <div class="invalid-feedback">
+                                @Model.UploadResult.Message
+                            </div>
+                        }
+                        <div id="fileSizeInfo" class="form-text mt-2"></div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg" id="uploadBtn">
+                            <i class="bi bi-upload"></i> Upload and Extract
+                        </button>
+                    </div>
+                </fieldset>
+            </form>
+        </div>
 
         @if (Model.UploadResult != null && Model.UploadResult.Success)
         {
@@ -325,6 +339,14 @@
         uploadForm.addEventListener('submit', function(e) {
             const file = zipFileInput.files[0];
             if (!file) {
+                return;
+            }
+
+            // If recipients are not available, block submit (extra safety)
+            const hasRecipients = @Model.HasRecipients.ToString().ToLower();
+            if (!hasRecipients) {
+                e.preventDefault();
+                alert('Please upload the recipients CSV first.');
                 return;
             }
 

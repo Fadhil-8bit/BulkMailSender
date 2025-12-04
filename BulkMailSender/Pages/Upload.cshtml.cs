@@ -27,8 +27,14 @@ public class UploadModel : PageModel
 
     public UploadResult? UploadResult { get; set; }
 
+    public bool HasRecipients { get; set; }
+
     public void OnGet()
     {
+        // Check if recipients are present in session
+        var recipientsJson = HttpContext.Session.GetString("Recipients");
+        HasRecipients = !string.IsNullOrEmpty(recipientsJson);
+
         // Try to load upload result from session if redirected back
         var uploadResultJson = HttpContext.Session.GetString("UploadResult");
         if (!string.IsNullOrEmpty(uploadResultJson))
@@ -48,6 +54,20 @@ public class UploadModel : PageModel
     [RequestFormLimits(MultipartBodyLengthLimit = 524288000, ValueLengthLimit = 524288000)]
     public async Task<IActionResult> OnPostAsync()
     {
+        // Require recipients to be uploaded first
+        var recipientsJson = HttpContext.Session.GetString("Recipients");
+        HasRecipients = !string.IsNullOrEmpty(recipientsJson);
+        if (!HasRecipients)
+        {
+            UploadResult = new UploadResult
+            {
+                Success = false,
+                Message = "Please upload the recipients CSV first before uploading attachments."
+            };
+            ModelState.AddModelError(string.Empty, UploadResult.Message);
+            return Page();
+        }
+
         if (ZipFile == null)
         {
             UploadResult = new UploadResult

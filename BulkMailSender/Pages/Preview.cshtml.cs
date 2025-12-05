@@ -2,8 +2,7 @@ using System.Text.Json;
 using BulkMailSender.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using System.Net.Mail;
-using System.Net;
+using BulkMailSender.Services;
 
 namespace BulkMailSender.Pages;
 
@@ -11,11 +10,16 @@ public class PreviewModel : PageModel
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<PreviewModel> _logger;
+    private readonly EmailSendQueueService _queueService;
 
-    public PreviewModel(IConfiguration configuration, ILogger<PreviewModel> logger)
+    public PreviewModel(
+        IConfiguration configuration,
+        ILogger<PreviewModel> logger,
+        EmailSendQueueService queueService)
     {
         _configuration = configuration;
         _logger = logger;
+        _queueService = queueService;
     }
 
     public bool HasUploadData { get; set; }
@@ -71,6 +75,40 @@ public class PreviewModel : PageModel
         }
     }
 
+    // API endpoint for polling send progress
+    public IActionResult OnGetSendProgress()
+    {
+        var jobIdJson = HttpContext.Session.GetString("CurrentJobId");
+        if (string.IsNullOrEmpty(jobIdJson))
+        {
+            return new JsonResult(new { status = "idle" });
+        }
+
+        var jobId = JsonSerializer.Deserialize<string>(jobIdJson);
+        if (string.IsNullOrEmpty(jobId))
+        {
+            return new JsonResult(new { status = "idle" });
+        }
+
+        var job = _queueService.GetJob(jobId);
+        if (job == null)
+        {
+            return new JsonResult(new { status = "idle" });
+        }
+
+        var response = new
+        {
+            status = job.Status.ToString().ToLower(),
+            totalEmails = job.TotalEmails,
+            sentCount = job.SentCount,
+            failedCount = job.FailedCount,
+            skippedCount = job.SkippedCount,
+            currentDebtor = job.CurrentDebtor
+        };
+
+        return new JsonResult(response);
+    }
+
     public async Task<IActionResult> OnPostSendAsync()
     {
         // Load data
@@ -103,92 +141,37 @@ public class PreviewModel : PageModel
 
         var grouped = recipients.GroupBy(r => r.DebtorCode).OrderBy(g => g.Key).ToList();
 
-        var results = new SendSummary();
-
-        foreach (var group in grouped)
+        // Create and enqueue background job
+        var job = new EmailSendJob
         {
-            var debtorCode = group.Key;
-            var recipientList = group.ToList();
+            Recipients = recipients,
+            UploadResult = uploadResult,
+            Template = template,
+            SmtpSettings = smtp,
+            TotalEmails = grouped.Count
+        };
 
-            // find attachments for debtor
-            var debtorAttach = uploadResult?.DebtorAttachments.FirstOrDefault(d => string.Equals(d.DebtorCode, debtorCode, StringComparison.OrdinalIgnoreCase));
+        var jobId = _queueService.EnqueueJob(job);
 
-            // determine attachments based on template type
-            var attachmentsToAdd = new List<string>();
-            if (template != null && debtorAttach != null)
-            {
-                if (template.TemplateType == TemplateType.SoaInv)
-                {
-                    attachmentsToAdd.AddRange(debtorAttach.InvoiceFiles.Select(f => f.FilePath));
-                    attachmentsToAdd.AddRange(debtorAttach.StatementFiles.Select(f => f.FilePath));
-                }
-                else
-                {
-                    attachmentsToAdd.AddRange(debtorAttach.OverdueFiles.Select(f => f.FilePath));
-                }
-            }
+        // Store job ID in session for progress polling
+        HttpContext.Session.SetString("CurrentJobId", JsonSerializer.Serialize(jobId));
 
-            if (!attachmentsToAdd.Any())
-            {
-                results.Skipped.Add(new PerDebtorResult { DebtorCode = debtorCode, Reason = "No attachments found for this debtor and template type." });
-                continue;
-            }
+        _logger.LogInformation("Job {JobId} created and enqueued with {Count} emails", jobId, job.TotalEmails);
 
-            // compose message
-            try
-            {
-                using var msg = new MailMessage();
-                msg.From = new MailAddress(smtp.FromEmail ?? smtp.Username, smtp.FromName ?? "Bulk Mail Sender");
-
-                foreach (var r in recipientList.Where(x => x.Label == EmailLabel.To)) msg.To.Add(r.Email);
-                foreach (var r in recipientList.Where(x => x.Label == EmailLabel.Cc)) msg.CC.Add(r.Email);
-                foreach (var r in recipientList.Where(x => x.Label == EmailLabel.Bcc)) msg.Bcc.Add(r.Email);
-
-                // Replace placeholders
-                var org = recipientList.FirstOrDefault()?.OrganizationName ?? "{organization name}";
-                var notes = recipientList.FirstOrDefault()?.Notes ?? "{notes}";
-                var debtorPlaceholder = debtorCode;
-
-                var subject = template != null ? template.Subject : string.Empty;
-                var body = template != null ? template.Body : string.Empty;
-                subject = subject.Replace("{organization name}", org).Replace("{notes}", notes).Replace("{debtor code}", debtorPlaceholder);
-                body = body.Replace("{organization name}", org).Replace("{notes}", notes).Replace("{debtor code}", debtorPlaceholder);
-
-                msg.Subject = subject;
-                msg.Body = body;
-                msg.IsBodyHtml = false;
-
-                // attach files
-                foreach (var path in attachmentsToAdd.Distinct())
-                {
-                    if (System.IO.File.Exists(path))
-                    {
-                        msg.Attachments.Add(new Attachment(path));
-                    }
-                }
-
-                using var client = new SmtpClient(smtp.Host, smtp.Port)
-                {
-                    EnableSsl = smtp.EnableSsl,
-                    Timeout = smtp.TimeoutSeconds * 1000,
-                    Credentials = string.IsNullOrWhiteSpace(smtp.Username) ? null : new NetworkCredential(smtp.Username, smtp.Password)
-                };
-
-                await client.SendMailAsync(msg);
-
-                results.Sent.Add(new PerDebtorResult { DebtorCode = debtorCode, To = recipientList.Where(x => x.Label == EmailLabel.To).Select(x => x.Email).ToList(), Message = "Sent" });
-            }
-            catch (Exception ex)
-            {
-                results.Failed.Add(new PerDebtorResult { DebtorCode = debtorCode, Reason = ex.Message });
-                _logger.LogError(ex, "Failed sending to debtor {Debtor}", debtorCode);
-            }
-        }
-
-        // Save results to session and redirect to results page
-        HttpContext.Session.SetString("SendResults", JsonSerializer.Serialize(results));
-        return RedirectToPage("/SendResults");
+        // Return immediately - job will be processed in background
+        // Stay on preview page and let JavaScript poll for progress
+        return RedirectToPage("/Preview");
     }
+}
+
+public class SendProgress
+{
+    public string Status { get; set; } = "idle"; // idle, sending, completed
+    public int TotalEmails { get; set; }
+    public int SentCount { get; set; }
+    public int FailedCount { get; set; }
+    public int SkippedCount { get; set; }
+    public string CurrentDebtor { get; set; } = "";
 }
 
 public class DebtorAttachmentsSummary
@@ -197,19 +180,4 @@ public class DebtorAttachmentsSummary
     public int SoaCount { get; set; }
     public int OdCount { get; set; }
     public int OtherCount { get; set; }
-}
-
-public class SendSummary
-{
-    public List<PerDebtorResult> Sent { get; set; } = new();
-    public List<PerDebtorResult> Failed { get; set; } = new();
-    public List<PerDebtorResult> Skipped { get; set; } = new();
-}
-
-public class PerDebtorResult
-{
-    public string DebtorCode { get; set; } = string.Empty;
-    public List<string> To { get; set; } = new();
-    public string Message { get; set; } = string.Empty;
-    public string Reason { get; set; } = string.Empty;
 }

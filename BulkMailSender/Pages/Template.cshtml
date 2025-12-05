@@ -1,4 +1,5 @@
 @page
+@using BulkMailSender.Models
 @model BulkMailSender.Pages.TemplateModel
 @{
     ViewData["Title"] = "Draft Email";
@@ -93,8 +94,8 @@
                             <label class="form-label fw-bold">Preview Email Type</label>
                             <select class="form-select" name="PreviewTemplateType" id="previewTemplateType">
                                 <option value="">-- Select Email Type --</option>
-                                <option value="SoaInv" selected="@(Model.PreviewTemplateType == BulkMailSender.Pages.TemplateType.SoaInv)">SOA &amp; Invoice</option>
-                                <option value="Overdue" selected="@(Model.PreviewTemplateType == BulkMailSender.Pages.TemplateType.Overdue)">Overdue</option>
+                                <option value="SoaInv" selected="@(Model.PreviewTemplateType == TemplateType.SoaInv)">SOA &amp; Invoice</option>
+                                <option value="Overdue" selected="@(Model.PreviewTemplateType == TemplateType.Overdue)">Overdue</option>
                             </select>
                             <div class="form-text">For preview only</div>
                         </div>

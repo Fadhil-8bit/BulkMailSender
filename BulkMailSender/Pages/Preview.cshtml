@@ -13,6 +13,8 @@
     .nav-tabs .nav-link { color: #495057; font-weight: 500; }
     .nav-tabs .nav-link.active { color: #667eea; border-bottom: 3px solid #667eea; }
     .action-bar { position: sticky; bottom: 0; background: white; border-top: 2px solid #dee2e6; padding: 1.5rem; margin: -1rem -1rem -1rem -1rem; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 100; }
+    .progress-container { display: none; margin-top: 1rem; padding: 1.5rem; background: #f8f9fa; border-radius: .5rem; border: 2px solid #667eea; }
+    .progress-bar-animated { animation: progress-bar-stripes 1s linear infinite; }
 </style>
 
 <div class="row">
@@ -38,6 +40,19 @@
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         }
+
+        <!-- Progress Container (hidden by default) -->
+        <div id="progressContainer" class="progress-container">
+            <h5 class="mb-3"><i class="bi bi-hourglass-split"></i> Sending Emails...</h5>
+            <div class="progress mb-2" style="height: 30px;">
+                <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                     role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                    <span id="progressText">0%</span>
+                </div>
+            </div>
+            <p id="statusText" class="mb-1 text-muted"><small>Preparing to send...</small></p>
+            <p id="detailText" class="mb-0"><small><strong>Sent:</strong> <span id="sentCount">0</span> | <strong>Failed:</strong> <span id="failedCount">0</span> | <strong>Skipped:</strong> <span id="skippedCount">0</span></small></p>
+        </div>
 
         <!-- Summary Stats -->
         <div class="row g-3 mb-4">
@@ -221,16 +236,16 @@
                 <div class="action-bar">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <a asp-page="/Recipients" class="btn btn-outline-secondary">
+                            <a asp-page="/Recipients" class="btn btn-outline-secondary" id="editRecipientsBtn">
                                 <i class="bi bi-pencil"></i> Edit Recipients
                             </a>
-                            <a asp-page="/Template" class="btn btn-outline-secondary ms-2">
+                            <a asp-page="/Template" class="btn btn-outline-secondary ms-2" id="editTemplateBtn">
                                 <i class="bi bi-pencil"></i> Edit Template
                             </a>
                         </div>
                         <div>
-                            <form method="post" style="display: inline;">
-                                <button type="submit" asp-page-handler="Send" class="btn btn-success btn-lg">
+                            <form method="post" id="sendForm" style="display: inline;">
+                                <button type="submit" asp-page-handler="Send" class="btn btn-success btn-lg" id="sendBtn">
                                     <i class="bi bi-send-check"></i> Send All Emails
                                 </button>
                             </form>
@@ -241,3 +256,88 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        let pollInterval = null;
+
+        document.getElementById('sendForm').addEventListener('submit', function(e) {
+            // Show progress container and disable buttons
+            document.getElementById('progressContainer').style.display = 'block';
+            document.getElementById('sendBtn').disabled = true;
+            document.getElementById('editRecipientsBtn').classList.add('disabled');
+            document.getElementById('editTemplateBtn').classList.add('disabled');
+
+            // Start polling for progress immediately
+            pollInterval = setInterval(pollProgress, 500);
+        });
+
+        function pollProgress() {
+            fetch('?handler=SendProgress')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'idle') {
+                        return;
+                    }
+
+                    if (data.status === 'completed') {
+                        clearInterval(pollInterval);
+                        // Show completion message
+                        document.getElementById('statusText').innerHTML = '<small class="text-success"><strong>? All emails sent! Redirecting to results...</strong></small>';
+                        // Redirect to results page after 1 second
+                        setTimeout(() => {
+                            window.location.href = '/SendResults';
+                        }, 1000);
+                        return;
+                    }
+
+                    // Update progress UI
+                    const processed = data.sentCount + data.failedCount + data.skippedCount;
+                    const percentage = data.totalEmails > 0 ? Math.round((processed / data.totalEmails) * 100) : 0;
+
+                    const progressBar = document.getElementById('progressBar');
+                    const progressText = document.getElementById('progressText');
+                    const statusText = document.getElementById('statusText');
+                    const sentCount = document.getElementById('sentCount');
+                    const failedCount = document.getElementById('failedCount');
+                    const skippedCount = document.getElementById('skippedCount');
+
+                    progressBar.style.width = percentage + '%';
+                    progressBar.setAttribute('aria-valuenow', percentage);
+                    progressText.textContent = percentage + '%';
+
+                    statusText.innerHTML = `<small>Sending to <strong>${data.currentDebtor}</strong>... (${processed} of ${data.totalEmails})</small>`;
+                    
+                    sentCount.textContent = data.sentCount;
+                    failedCount.textContent = data.failedCount;
+                    skippedCount.textContent = data.skippedCount;
+
+                    // Change progress bar color based on status
+                    if (data.failedCount > 0) {
+                        progressBar.classList.remove('bg-success');
+                        progressBar.classList.add('bg-warning');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error polling progress:', err);
+                });
+        }
+
+        // Start polling on page load if there's an active job
+        window.addEventListener('load', function() {
+            // Check if there's a job in progress
+            fetch('?handler=SendProgress')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'running' || data.status === 'queued') {
+                        // Job in progress, show progress and start polling
+                        document.getElementById('progressContainer').style.display = 'block';
+                        document.getElementById('sendBtn').disabled = true;
+                        document.getElementById('editRecipientsBtn').classList.add('disabled');
+                        document.getElementById('editTemplateBtn').classList.add('disabled');
+                        pollInterval = setInterval(pollProgress, 500);
+                    }
+                });
+        });
+    </script>
+}

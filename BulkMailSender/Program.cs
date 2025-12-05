@@ -53,6 +53,10 @@ namespace BulkMailSender
             
             // Register custom services
             builder.Services.AddScoped<IZipExtractionService, ZipExtractionService>();
+            
+            // Register background job services
+            builder.Services.AddSingleton<EmailSendQueueService>();
+            builder.Services.AddHostedService<BackgroundEmailSendService>();
 
             var app = builder.Build();
 

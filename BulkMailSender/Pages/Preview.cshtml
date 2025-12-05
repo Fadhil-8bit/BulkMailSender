@@ -41,9 +41,24 @@
             </div>
         }
 
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div class="alert alert-success alert-dismissible fade show">
+                <i class="bi bi-check-circle"></i> @TempData["SuccessMessage"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+
         <!-- Progress Container (hidden by default) -->
         <div id="progressContainer" class="progress-container">
-            <h5 class="mb-3"><i class="bi bi-hourglass-split"></i> Sending Emails...</h5>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0"><i class="bi bi-hourglass-split"></i> Sending Emails...</h5>
+                <form method="post" asp-page-handler="Cancel" id="cancelForm" style="display: inline;">
+                    <button type="submit" class="btn btn-sm btn-danger" id="cancelBtn">
+                        <i class="bi bi-x-circle"></i> Cancel Send
+                    </button>
+                </form>
+            </div>
             <div class="progress mb-2" style="height: 30px;">
                 <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
                      role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
@@ -284,10 +299,25 @@
                         clearInterval(pollInterval);
                         // Show completion message
                         document.getElementById('statusText').innerHTML = '<small class="text-success"><strong>? All emails sent! Redirecting to results...</strong></small>';
+                        document.getElementById('cancelBtn').disabled = true;
                         // Redirect to results page after 1 second
                         setTimeout(() => {
                             window.location.href = '/SendResults';
                         }, 1000);
+                        return;
+                    }
+
+                    if (data.status === 'cancelled') {
+                        clearInterval(pollInterval);
+                        // Show cancellation message
+                        document.getElementById('statusText').innerHTML = '<small class="text-danger"><strong>? Send cancelled by user</strong></small>';
+                        document.getElementById('progressBar').classList.remove('bg-success', 'bg-warning');
+                        document.getElementById('progressBar').classList.add('bg-danger');
+                        document.getElementById('cancelBtn').disabled = true;
+                        // Redirect to results page after 2 seconds
+                        setTimeout(() => {
+                            window.location.href = '/SendResults';
+                        }, 2000);
                         return;
                     }
 
@@ -322,6 +352,17 @@
                     console.error('Error polling progress:', err);
                 });
         }
+
+        // Confirm before cancelling
+        document.getElementById('cancelForm').addEventListener('submit', function(e) {
+            if (!confirm('Are you sure you want to cancel the send? Emails already sent will NOT be rolled back.')) {
+                e.preventDefault();
+                return false;
+            }
+            // Disable cancel button to prevent double-click
+            document.getElementById('cancelBtn').disabled = true;
+            document.getElementById('cancelBtn').innerHTML = '<i class="bi bi-hourglass-split"></i> Cancelling...';
+        });
 
         // Start polling on page load if there's an active job
         window.addEventListener('load', function() {

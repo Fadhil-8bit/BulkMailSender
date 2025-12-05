@@ -162,6 +162,41 @@ public class PreviewModel : PageModel
         // Stay on preview page and let JavaScript poll for progress
         return RedirectToPage("/Preview");
     }
+
+    public IActionResult OnPostCancel()
+    {
+        var jobIdJson = HttpContext.Session.GetString("CurrentJobId");
+        if (string.IsNullOrEmpty(jobIdJson))
+        {
+            TempData["SendError"] = "No active job to cancel.";
+            return RedirectToPage("/Preview");
+        }
+
+        try
+        {
+            var jobId = JsonSerializer.Deserialize<string>(jobIdJson);
+            if (!string.IsNullOrEmpty(jobId))
+            {
+                var cancelled = _queueService.CancelJob(jobId);
+                if (cancelled)
+                {
+                    _logger.LogInformation("Job {JobId} cancelled by user", jobId);
+                    TempData["SuccessMessage"] = "Email send cancelled. Emails already sent will not be rolled back.";
+                }
+                else
+                {
+                    TempData["SendError"] = "Could not cancel job. It may have already completed.";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cancelling job");
+            TempData["SendError"] = $"Error cancelling job: {ex.Message}";
+        }
+
+        return RedirectToPage("/Preview");
+    }
 }
 
 public class SendProgress

@@ -5,13 +5,24 @@
 }
 
 <style>
-    .scroll-box { max-height: 550px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: .5rem; padding: 1rem; background: #fff; }
-    .template-preview { white-space: pre-wrap; border: 1px solid #dee2e6; border-radius: .5rem; padding: .75rem; background: #f8f9fa; }
+    .scroll-box { max-height: 450px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: .5rem; padding: 1rem; background: #fff; }
+    .template-preview { white-space: pre-wrap; border: 1px solid #dee2e6; border-radius: .5rem; padding: .75rem; background: #f8f9fa; font-size: 0.9rem; }
+    .stat-card { text-align: center; padding: 1rem; border-radius: .5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    .stat-number { font-size: 2rem; font-weight: bold; margin: 0; }
+    .stat-label { font-size: 0.9rem; opacity: 0.9; margin: 0; }
+    .nav-tabs .nav-link { color: #495057; font-weight: 500; }
+    .nav-tabs .nav-link.active { color: #667eea; border-bottom: 3px solid #667eea; }
+    .action-bar { position: sticky; bottom: 0; background: white; border-top: 2px solid #dee2e6; padding: 1.5rem; margin: -1rem -1rem -1rem -1rem; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 100; }
 </style>
 
 <div class="row">
-    <div class="col-md-10 offset-md-1">
-        <h2 class="mb-4"><i class="bi bi-clipboard-check"></i> Review Before Sending</h2>
+    <div class="col-md-11 offset-md-0">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-clipboard-check"></i> Review Before Sending</h2>
+            <a asp-page="/Template" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Template
+            </a>
+        </div>
 
         @if (!Model.HasUploadData)
         {
@@ -22,30 +33,66 @@
 
         @if (TempData["SendError"] != null)
         {
-            <div class="alert alert-danger">@TempData["SendError"]</div>
+            <div class="alert alert-danger alert-dismissible fade show">
+                <i class="bi bi-exclamation-circle"></i> @TempData["SendError"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
         }
 
-        <div class="row g-3">
-            <div class="col-md-4">
-                <div class="card h-100">
-                    <div class="card-header bg-primary text-white"><h6 class="mb-0">Template</h6></div>
-                    <div class="card-body">
-                        <p><strong>Type:</strong> @Model.Template?.TemplateType</p>
-                        <p><strong>Subject:</strong><br /><div class="template-preview">@Model.Template?.Subject</div></p>
-                        <p><strong>Body:</strong><br /><div class="template-preview">@Model.Template?.Body</div></p>
-                        <div class="text-end">
-                            <a asp-page="/Template" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil"></i> Edit Template</a>
-                        </div>
-                    </div>
+        <!-- Summary Stats -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <p class="stat-number">@Model.GroupedRecipients.Count</p>
+                    <p class="stat-label">Debtors</p>
                 </div>
             </div>
-            <div class="col-md-8">
-                <div class="card h-100">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0">Recipients (Grouped by Debtor)</h6>
-                        <small class="text-muted">@Model.GroupedRecipients.Count groups</small>
-                    </div>
-                    <div class="card-body p-0">
+            <div class="col-md-3">
+                <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <p class="stat-number">@Model.GroupedRecipients.Sum(g => g.Count())</p>
+                    <p class="stat-label">Total Recipients</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <p class="stat-number">@Model.AttachmentsSummary.Values.Sum(s => s.InvCount + s.SoaCount + s.OdCount + s.OtherCount)</p>
+                    <p class="stat-label">Total Attachments</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                    <p class="stat-number">@Model.Template?.TemplateType</p>
+                    <p class="stat-label">Email Type</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabbed Content -->
+        <div class="card">
+            <div class="card-header bg-white border-bottom-0">
+                <ul class="nav nav-tabs card-header-tabs" id="reviewTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="recipients-tab" data-bs-toggle="tab" data-bs-target="#recipients-content" type="button" role="tab">
+                            <i class="bi bi-people"></i> Recipients (@Model.GroupedRecipients.Count)
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="template-tab" data-bs-toggle="tab" data-bs-target="#template-content" type="button" role="tab">
+                            <i class="bi bi-envelope"></i> Email Template
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="attachments-tab" data-bs-toggle="tab" data-bs-target="#attachments-content" type="button" role="tab">
+                            <i class="bi bi-paperclip"></i> Attachments Summary
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body">
+                <div class="tab-content" id="reviewTabContent">
+                    
+                    <!-- Recipients Tab -->
+                    <div class="tab-pane fade show active" id="recipients-content" role="tabpanel">
                         <div class="scroll-box">
                             <div class="accordion" id="previewAccordion">
                                 @for (int i = 0; i < Model.GroupedRecipients.Count; i++)
@@ -55,68 +102,40 @@
                                     var accId = $"previewGroup{i}";
                                     <div class="accordion-item">
                                         <h2 class="accordion-header" id="headingPrev@(i)">
-                                            <button class="accordion-button @(i==0?"":"collapsed")" type="button" data-bs-toggle="collapse" data-bs-target="#@accId" aria-expanded="@(i==0?"true":"false")" aria-controls="@accId">
+                                            <button class="accordion-button @(i==0?"":"collapsed")" type="button" data-bs-toggle="collapse" data-bs-target="#@accId" aria-expanded="@(i==0?"true":"false")">
                                                 <strong>@g.Key</strong>
                                                 <span class="ms-3 badge bg-primary">@g.Count() email(s)</span>
                                                 @if (!string.IsNullOrWhiteSpace(first.OrganizationName))
                                                 {
-                                                    <span class="ms-2 text-muted">@first.OrganizationName</span>
-                                                }
-                                                @if (!string.IsNullOrWhiteSpace(first.Notes))
-                                                {
-                                                    <span class="ms-2 badge bg-info">@first.Notes</span>
+                                                    <span class="ms-2 text-muted small">@first.OrganizationName</span>
                                                 }
                                             </button>
                                         </h2>
-                                        <div id="@accId" class="accordion-collapse collapse @(i==0?"show":"")" aria-labelledby="headingPrev@(i)" data-bs-parent="#previewAccordion">
+                                        <div id="@accId" class="accordion-collapse collapse @(i==0?"show":"")" data-bs-parent="#previewAccordion">
                                             <div class="accordion-body">
-                                                <div class="row">
-                                                    <div class="col-md-7">
-                                                        <table class="table table-sm align-middle">
-                                                            <thead>
-                                                                <tr>
-                                                                    <th style="width:45%">Email</th>
-                                                                    <th style="width:20%">Label</th>
-                                                                    <th style="width:35%">Notes</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody>
-                                                                @foreach (var r in g)
-                                                                {
-                                                                    <tr>
-                                                                        <td>@r.Email</td>
-                                                                        <td>
-                                                                            @if (r.Label == BulkMailSender.Models.EmailLabel.To) { <span class="badge bg-success">TO</span> }
-                                                                            else if (r.Label == BulkMailSender.Models.EmailLabel.Cc) { <span class="badge bg-warning text-dark">CC</span> }
-                                                                            else { <span class="badge bg-secondary">BCC</span> }
-                                                                        </td>
-                                                                        <td>@r.Notes</td>
-                                                                    </tr>
-                                                                }
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-                                                    <div class="col-md-5">
-                                                        <div class="card">
-                                                            <div class="card-header"><small class="text-muted">Attachments Summary</small></div>
-                                                            <div class="card-body">
-                                                                @if (Model.AttachmentsSummary.TryGetValue(g.Key, out var sum))
-                                                                {
-                                                                    <ul class="mb-0">
-                                                                        <li>INV: @sum.InvCount</li>
-                                                                        <li>SOA: @sum.SoaCount</li>
-                                                                        <li>OD: @sum.OdCount</li>
-                                                                        <li>OTHER: @sum.OtherCount</li>
-                                                                    </ul>
-                                                                }
-                                                                else
-                                                                {
-                                                                    <div class="text-muted">No attachments found for this debtor.</div>
-                                                                }
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                <table class="table table-sm table-hover">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th style="width:50%">Email</th>
+                                                            <th style="width:20%">Label</th>
+                                                            <th style="width:30%">Notes</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach (var r in g)
+                                                        {
+                                                            <tr>
+                                                                <td><i class="bi bi-envelope-at text-muted"></i> @r.Email</td>
+                                                                <td>
+                                                                    @if (r.Label == BulkMailSender.Models.EmailLabel.To) { <span class="badge bg-success">TO</span> }
+                                                                    else if (r.Label == BulkMailSender.Models.EmailLabel.Cc) { <span class="badge bg-warning text-dark">CC</span> }
+                                                                    else { <span class="badge bg-secondary">BCC</span> }
+                                                                </td>
+                                                                <td><small class="text-muted">@r.Notes</small></td>
+                                                            </tr>
+                                                        }
+                                                    </tbody>
+                                                </table>
                                             </div>
                                         </div>
                                     </div>
@@ -124,12 +143,95 @@
                             </div>
                         </div>
                     </div>
-                    <div class="card-footer d-flex justify-content-between">
-                        <a asp-page="/Recipients" class="btn btn-outline-secondary"><i class="bi bi-people"></i> Edit Recipients</a>
-                        <div class="d-flex gap-2">
-                            <form method="post">
-                                <button type="submit" asp-page-handler="Send" class="btn btn-danger">
-                                    <i class="bi bi-send"></i> Send Now (MVP)
+
+                    <!-- Template Tab -->
+                    <div class="tab-pane fade" id="template-content" role="tabpanel">
+                        <div class="row g-3">
+                            <div class="col-md-12">
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle"></i> <strong>Email Type:</strong> @Model.Template?.TemplateType &nbsp;|&nbsp; <strong>Period:</strong> @Model.Template?.Period
+                                </div>
+                            </div>
+                            <div class="col-md-12">
+                                <h5 class="text-primary"><i class="bi bi-envelope"></i> Subject Line</h5>
+                                <div class="template-preview mb-3">@Model.Template?.Subject</div>
+                            </div>
+                            <div class="col-md-12">
+                                <h5 class="text-secondary"><i class="bi bi-file-text"></i> Email Body</h5>
+                                <div class="template-preview" style="max-height: 350px; overflow-y: auto;">@Model.Template?.Body</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Attachments Tab -->
+                    <div class="tab-pane fade" id="attachments-content" role="tabpanel">
+                        <div class="scroll-box">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Debtor Code</th>
+                                        <th class="text-center">Invoice (INV)</th>
+                                        <th class="text-center">Statement (SOA)</th>
+                                        <th class="text-center">Overdue (OD)</th>
+                                        <th class="text-center">Other</th>
+                                        <th class="text-center">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var g in Model.GroupedRecipients)
+                                    {
+                                        if (Model.AttachmentsSummary.TryGetValue(g.Key, out var sum))
+                                        {
+                                            var total = sum.InvCount + sum.SoaCount + sum.OdCount + sum.OtherCount;
+                                            <tr>
+                                                <td><strong>@g.Key</strong></td>
+                                                <td class="text-center">
+                                                    @if (sum.InvCount > 0) { <span class="badge bg-success">@sum.InvCount</span> } else { <span class="text-muted">-</span> }
+                                                </td>
+                                                <td class="text-center">
+                                                    @if (sum.SoaCount > 0) { <span class="badge bg-primary">@sum.SoaCount</span> } else { <span class="text-muted">-</span> }
+                                                </td>
+                                                <td class="text-center">
+                                                    @if (sum.OdCount > 0) { <span class="badge bg-warning text-dark">@sum.OdCount</span> } else { <span class="text-muted">-</span> }
+                                                </td>
+                                                <td class="text-center">
+                                                    @if (sum.OtherCount > 0) { <span class="badge bg-secondary">@sum.OtherCount</span> } else { <span class="text-muted">-</span> }
+                                                </td>
+                                                <td class="text-center"><strong>@total</strong></td>
+                                            </tr>
+                                        }
+                                        else
+                                        {
+                                            <tr>
+                                                <td><strong>@g.Key</strong></td>
+                                                <td colspan="5" class="text-center text-danger">
+                                                    <i class="bi bi-exclamation-triangle"></i> No attachments found
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Action Bar -->
+                <div class="action-bar">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <a asp-page="/Recipients" class="btn btn-outline-secondary">
+                                <i class="bi bi-pencil"></i> Edit Recipients
+                            </a>
+                            <a asp-page="/Template" class="btn btn-outline-secondary ms-2">
+                                <i class="bi bi-pencil"></i> Edit Template
+                            </a>
+                        </div>
+                        <div>
+                            <form method="post" style="display: inline;">
+                                <button type="submit" asp-page-handler="Send" class="btn btn-success btn-lg">
+                                    <i class="bi bi-send-check"></i> Send All Emails
                                 </button>
                             </form>
                         </div>

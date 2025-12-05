@@ -1,7 +1,7 @@
 @page
 @model BulkMailSender.Pages.TemplateModel
 @{
-    ViewData["Title"] = "Configure Email Template";
+    ViewData["Title"] = "Draft Email";
 }
 
 <style>
@@ -12,7 +12,7 @@
 
 <div class="row">
     <div class="col-md-10 offset-md-1">
-        <h2 class="mb-4"><i class="bi bi-envelope"></i> Configure Email Template</h2>
+        <h2 class="mb-4"><i class="bi bi-envelope"></i> Configure Email Type</h2>
 
         @if (!Model.HasUploadData)
         {
@@ -25,28 +25,86 @@
             <strong>Reminder:</strong> Set the period (e.g., OCT 2025). This is easy to forget.
         </div>
 
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="bi bi-check-circle"></i> @TempData["SuccessMessage"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        }
+
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-circle"></i> @TempData["ErrorMessage"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        }
+
         <form method="post">
             <div class="card mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Template Settings</h5>
+                    <h5 class="mb-0">Email Settings</h5>
                     <small class="text-muted">SOA/INV or Overdue</small>
                 </div>
                 <div class="card-body">
                     <div class="row g-3">
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">Template Type</label>
-                            <select class="form-select" asp-for="TemplateType">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Email Type</label>
+                            <select class="form-select @(ModelState.GetFieldValidationState(nameof(Model.TemplateType)) == Microsoft.AspNetCore.Mvc.ModelBinding.ModelValidationState.Invalid ? "is-invalid" : "")" asp-for="TemplateType">
+                                <option value="">-- Select Email --</option>
                                 <option value="SoaInv">SOA &amp; Invoice</option>
                                 <option value="Overdue">Overdue</option>
                             </select>
+                            <span class="invalid-feedback d-block">@Html.ValidationMessage(nameof(Model.TemplateType))</span>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label fw-bold">Period (e.g., OCT 2025)</label>
-                            <input class="form-control" asp-for="Period" placeholder="OCT 2025" />
+                            <input class="form-control @(ModelState.GetFieldValidationState(nameof(Model.Period)) == Microsoft.AspNetCore.Mvc.ModelBinding.ModelValidationState.Invalid ? "is-invalid" : "")" asp-for="Period"/>
                             <div class="form-text">Make sure this matches the attachments period.</div>
+                            <span class="invalid-feedback d-block">@Html.ValidationMessage(nameof(Model.Period))</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer d-flex justify-content-between align-items-center">
+                    <div>
+                        <small class="text-muted">
+                            <i class="bi bi-check2-circle"></i> 
+                            <strong>Checklist:</strong> Email Type selected &bull; Period filled
+                        </small>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" formaction="?handler=Save" class="btn btn-success"><i class="bi bi-save"></i> Save Template</button>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-clipboard-check"></i> Go to Review</button>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <div class="card mb-4 border-info">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="bi bi-eye"></i> Preview Email (Optional)</h5>
+                <small class="text-muted">Test how the email will look with different settings</small>
+            </div>
+            <div class="card-body">
+                <form method="post" asp-page-handler="Preview">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Preview Email Type</label>
+                            <select class="form-select" name="PreviewTemplateType" id="previewTemplateType">
+                                <option value="">-- Select Email Type --</option>
+                                <option value="SoaInv" selected="@(Model.PreviewTemplateType == BulkMailSender.Pages.TemplateType.SoaInv)">SOA &amp; Invoice</option>
+                                <option value="Overdue" selected="@(Model.PreviewTemplateType == BulkMailSender.Pages.TemplateType.Overdue)">Overdue</option>
+                            </select>
+                            <div class="form-text">For preview only</div>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label fw-bold">Select Debtor Code (for preview)</label>
+                            <label class="form-label fw-bold">Preview Period</label>
+                            <input type="text" class="form-control" name="PreviewPeriod" id="previewPeriod" placeholder="e.g., OCT 2025" value="@Model.PreviewPeriod"/>
+                            <div class="form-text">For preview only</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Select Debtor Code</label>
                             <select class="form-select" asp-for="DebtorCode" id="debtorCodeSelect">
                                 <option value="">-- Select a debtor --</option>
                                 @foreach (var d in Model.AvailableDebtorCodes)
@@ -54,13 +112,13 @@
                                     <option value="@d.DebtorCode">@d.DebtorCode (@d.EmailCount email(s))</option>
                                 }
                             </select>
-                            <div class="form-text">Choose a debtor to preview their specific details.</div>
+                            <div class="form-text">Choose a debtor to preview</div>
                         </div>
                     </div>
 
                     @if (!string.IsNullOrWhiteSpace(Model.SelectedOrganizationName) || !string.IsNullOrWhiteSpace(Model.SelectedNotes))
                     {
-                        <div class="row g-3 mt-2">
+                        <div class="row g-3 mt-3">
                             <div class="col-12">
                                 <div class="alert alert-light border">
                                     <h6 class="mb-2">Selected Debtor Info:</h6>
@@ -72,26 +130,22 @@
                         </div>
                     }
 
-                    <div class="row g-3 mt-2">
-                        <div class="col-md-8">
-                            <label class="form-label fw-bold">Organization Name</label>
-                            <div class="placeholder-pill">{organization name}</div>
-                            <div class="form-text">Driven by recipients CSV; not editable here.</div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">Notes</label>
-                            <div class="placeholder-pill">{notes}</div>
-                            <div class="form-text">Driven by recipients CSV; used in Overdue body.</div>
+                    <div class="row g-3 mt-3">
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i> <strong>Note:</strong> Preview settings are independent from the saved template above. Fill in Email Type and Period here to test the preview.
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="card-footer d-flex justify-content-end gap-2">
-                    <button type="submit" class="btn btn-primary" asp-page-handler="Preview"><i class="bi bi-eye"></i> Preview</button>
-                    <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Save Template</button>
-                    <a asp-page="/Preview" class="btn btn-outline-secondary"><i class="bi bi-clipboard-check"></i> Go to Review</a>
-                </div>
+
+                    <div class="row g-3 mt-3">
+                        <div class="col-12 d-flex justify-content-end">
+                            <button type="submit" class="btn btn-outline-primary"><i class="bi bi-eye"></i> Preview</button>
+                        </div>
+                    </div>
+                </form>
             </div>
-        </form>
+        </div>
 
         @if (!string.IsNullOrWhiteSpace(Model.SubjectPreview))
         {
@@ -99,9 +153,6 @@
                 <div class="card-header bg-primary text-white"><h5 class="mb-0">Subject Preview</h5></div>
                 <div class="card-body">
                     <div class="template-preview">@Model.SubjectPreview</div>
-                    <div class="mt-3 text-end">
-                        <a asp-page="/Preview" class="btn btn-outline-secondary"><i class="bi bi-clipboard-check"></i> Review Before Sending</a>
-                    </div>
                 </div>
             </div>
         }
@@ -112,9 +163,6 @@
                 <div class="card-header bg-secondary text-white"><h5 class="mb-0">Body Preview</h5></div>
                 <div class="card-body">
                     <div class="template-preview">@Model.BodyPreview</div>
-                    <div class="mt-3 text-end">
-                        <a asp-page="/Preview" class="btn btn-outline-secondary"><i class="bi bi-clipboard-check"></i> Review Before Sending</a>
-                    </div>
                 </div>
             </div>
         }
@@ -167,11 +215,6 @@ Direct Line: 018-7864855</pre>
 
 @section Scripts {
     <script>
-        document.getElementById('debtorCodeSelect').addEventListener('change', function() {
-            if (this.value) {
-                // Auto-submit form to preview with selected debtor
-                document.querySelector('button[asp-page-handler="Preview"]').click();
-            }
-        });
+        // Optional: You can add any preview-related JavaScript here if needed
     </script>
 }

@@ -127,11 +127,15 @@
                                 {
                                     var debtor = Model.UploadResult.DebtorAttachments[i];
                                     var accordionId = $"debtor{i}";
+
+                                    var isExpanded = i == 0 ? "true" : "false";
+                                    var buttonClass = i == 0 ? "" : "collapsed";
+
                                     <div class="accordion-item">
                                         <h2 class="accordion-header" id="heading@(i)">
-                                            <button class="accordion-button @(i == 0 ? "" : "collapsed")" type="button" 
-                                                    data-bs-toggle="collapse" data-bs-target="#@accordionId" 
-                                                    aria-expanded="@(i == 0 ? "true" : "false")" aria-controls="@accordionId">
+                                            <button class="accordion-button @buttonClass" type="button"
+                                                    data-bs-toggle="collapse" data-bs-target="#@accordionId"
+                                                    aria-expanded="@isExpanded" aria-controls="@accordionId">
                                                 <strong>@debtor.DebtorCode</strong>
                                                 <span class="ms-3 badge bg-secondary">@debtor.TotalFileCount files</span>
                                                 <span class="ms-2 badge bg-secondary">@debtor.TotalFileSizeFormatted</span>
@@ -343,8 +347,8 @@
             }
 
             // If recipients are not available, block submit (extra safety)
-            const hasRecipients = @Model.HasRecipients.ToString().ToLower();
-            if (!hasRecipients) {
+            const hasRecipients = "@(Model.HasRecipients.ToString().ToLower())" === "true";
+            if (hasRecipients !== true) {
                 e.preventDefault();
                 alert('Please upload the recipients CSV first.');
                 return;

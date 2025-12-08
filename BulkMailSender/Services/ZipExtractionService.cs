@@ -59,7 +59,7 @@ public class ZipExtractionService : IZipExtractionService
             // Extract ZIP file from disk (not from stream)
             _logger.LogInformation("Starting ZIP extraction...");
             await Task.Run(() => ZipFile.ExtractToDirectory(tempZipPath, extractPath, true));
-            
+
             _logger.LogInformation($"ZIP file extracted to {extractPath}");
 
             // Delete temporary ZIP file

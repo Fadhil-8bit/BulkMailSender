@@ -6,6 +6,8 @@ using System.Text.Json;
 
 namespace BulkMailSender.Pages;
 
+[RequestSizeLimit(524288000)] // 500 MB
+[RequestFormLimits(MultipartBodyLengthLimit = 524288000, ValueLengthLimit = 524288000)]
 public class UploadModel : PageModel
 {
     private readonly IZipExtractionService _zipExtractionService;
@@ -50,8 +52,6 @@ public class UploadModel : PageModel
         }
     }
 
-    [RequestSizeLimit(524288000)] // 500 MB
-    [RequestFormLimits(MultipartBodyLengthLimit = 524288000, ValueLengthLimit = 524288000)]
     public async Task<IActionResult> OnPostAsync()
     {
         // Require recipients to be uploaded first

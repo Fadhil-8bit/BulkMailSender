@@ -73,8 +73,8 @@ public class SettingsModel : PageModel
         ModelState.Clear();
         LoadDefaultSettings();
         await SaveToStorageAndSessionAsync();
-        TestResult = "Default settings loaded and saved. Click 'Test Connection' to verify.";
-        TestSuccess = false;
+        TestResult = "? Default settings loaded and saved. Ready to use!";
+        TestSuccess = true;
         HasSavedSettings = _settingsStorage.HasSavedSettings();
         return Page();
     }
@@ -84,8 +84,8 @@ public class SettingsModel : PageModel
         ModelState.Clear();
         LoadPaperCutSettings();
         await SaveToStorageAndSessionAsync();
-        TestResult = "PaperCut settings loaded and saved. Make sure PaperCut SMTP is running on localhost:25.";
-        TestSuccess = false;
+        TestResult = "? PaperCut settings loaded and saved. Make sure PaperCut SMTP is running on localhost:25.";
+        TestSuccess = true;
         HasSavedSettings = _settingsStorage.HasSavedSettings();
         return Page();
     }

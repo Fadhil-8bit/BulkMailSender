@@ -6,15 +6,15 @@
 
 <div class="row">
     <div class="col-md-10 offset-md-1">
-        <h2 class="mb-4"><i class="bi bi-gear"></i> SMTP Email Settings</h2>
+        <h2 class="mb-4"><i class="bi bi-gear"></i> Email Configuration</h2>
 
-        <div class="alert alert-info">
-            <strong>Choose a preset or configure manually:</strong>
-            <ul class="mb-0">
-                <li><strong>Default (Brevo)</strong> - Production SMTP for sending real emails via Brevo</li>
-                <li><strong>PaperCut</strong> - Local SMTP testing (requires PaperCut SMTP running on localhost:25)</li>
-            </ul>
-        </div>
+        @if (Model.HasSavedSettings)
+        {
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle"></i> <strong>Settings Loaded from Persistent Storage</strong>
+                <p class="mb-0 mt-2 small">Your settings are saved and will persist across application restarts.</p>
+            </div>
+        }
 
         @if (!string.IsNullOrEmpty(Model.TestResult))
         {
@@ -24,131 +24,263 @@
         }
 
         <form method="post">
+            <!-- Quick Actions -->
             <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Quick Presets</h5>
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-lightning"></i> Quick Actions</h5>
                 </div>
                 <div class="card-body">
-                    <div class="d-flex gap-2">
+                    <div class="d-flex gap-2 flex-wrap">
                         <button type="submit" asp-page-handler="UseDefault" class="btn btn-primary">
-                            <i class="bi bi-envelope"></i> Use Default (Brevo)
+                            <i class="bi bi-gear-fill"></i> Load Default Config
                         </button>
                         <button type="submit" asp-page-handler="UsePaperCut" class="btn btn-warning">
-                            <i class="bi bi-bug"></i> Use PaperCut (Debug)
+                            <i class="bi bi-bug"></i> Use PaperCut (Testing)
                         </button>
+                        <button type="submit" asp-page-handler="TestConnection" class="btn btn-info">
+                            <i class="bi bi-send-check"></i> Test Connection
+                        </button>
+                        <button type="submit" asp-page-handler="Save" class="btn btn-success">
+                            <i class="bi bi-save"></i> Save Settings
+                        </button>
+                        @if (Model.HasSavedSettings)
+                        {
+                            <button type="submit" asp-page-handler="ClearSettings" class="btn btn-outline-danger" 
+                                    onclick="return confirm('Are you sure you want to clear saved settings?');">
+                                <i class="bi bi-trash"></i> Clear Saved
+                            </button>
+                        }
                     </div>
                 </div>
             </div>
 
+            <!-- SMTP Server Configuration -->
             <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">SMTP Configuration</h5>
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-envelope-at"></i> SMTP Server Configuration</h5>
                 </div>
                 <div class="card-body">
                     <div class="row g-3">
                         <div class="col-md-8">
                             <label class="form-label fw-bold">SMTP Host</label>
-                            <input class="form-control" asp-for="CurrentSettings.Host" value="@Model.CurrentSettings.Host" placeholder="smtp-relay.brevo.com" />
+                            <input class="form-control" asp-for="CurrentSettings.Host" placeholder="smtp.example.com" />
+                            <div class="form-text">Your SMTP server hostname or IP address</div>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-bold">Port</label>
-                            <input type="number" class="form-control" asp-for="CurrentSettings.Port" value="@Model.CurrentSettings.Port" placeholder="587" />
+                            <input type="number" class="form-control" asp-for="CurrentSettings.Port" placeholder="587" />
+                            <div class="form-text">Common: 25, 587, 465</div>
                         </div>
+                        
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Username</label>
-                            <input class="form-control" asp-for="CurrentSettings.Username" value="@Model.CurrentSettings.Username" placeholder="your-brevo-login" />
-                            <div class="form-text">Leave blank for PaperCut/no auth.</div>
+                            <input class="form-control" asp-for="CurrentSettings.Username" placeholder="smtp-username" autocomplete="username" />
+                            <div class="form-text">Leave blank if no authentication required</div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Password / SMTP Key</label>
-                            <input type="password" class="form-control" asp-for="CurrentSettings.Password" value="@Model.CurrentSettings.Password" placeholder="Brevo SMTP key" />
-                            <div class="form-text">Brevo: Use SMTP key from Settings ? SMTP & API.</div>
+                            <input type="password" class="form-control" asp-for="CurrentSettings.Password" placeholder="••••••••" autocomplete="current-password" />
+                            <div class="form-text">SMTP password or API key</div>
                         </div>
-                        <div class="col-md-8">
-                            <label class="form-label fw-bold">From Email</label>
-                            <input type="email" class="form-control" asp-for="CurrentSettings.FromEmail" value="@Model.CurrentSettings.FromEmail" placeholder="sender@example.com" />
-                            <div class="form-text">Must be verified in Brevo dashboard.</div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">From Name</label>
-                            <input class="form-control" asp-for="CurrentSettings.FromName" value="@Model.CurrentSettings.FromName" placeholder="ATP Bulk Mailer" />
-                        </div>
+
                         <div class="col-md-4">
                             <label class="form-label fw-bold">Timeout (seconds)</label>
-                            <input type="number" class="form-control" asp-for="CurrentSettings.TimeoutSeconds" value="@Model.CurrentSettings.TimeoutSeconds" placeholder="30" />
+                            <input type="number" class="form-control" asp-for="CurrentSettings.TimeoutSeconds" placeholder="30" />
+                            <div class="form-text">Connection timeout</div>
                         </div>
+                        
                         <div class="col-md-4">
-                            <div class="form-check mt-4">
-                                @if (Model.CurrentSettings.EnableSsl)
-                                {
-                                    <input class="form-check-input" type="checkbox" asp-for="CurrentSettings.EnableSsl" checked />
-                                }
-                                else
-                                {
-                                    <input class="form-check-input" type="checkbox" asp-for="CurrentSettings.EnableSsl" />
-                                }
-                                <label class="form-check-label fw-bold">Enable SSL/TLS</label>
-                                <div class="form-text">Required for Brevo (port 587).</div>
+                            <div class="form-check mt-4 pt-2">
+                                <input class="form-check-input" type="checkbox" asp-for="CurrentSettings.EnableSsl" />
+                                <label class="form-check-label fw-bold">
+                                    Enable SSL/TLS
+                                </label>
+                                <div class="form-text">Required for port 587/465</div>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="card-footer d-flex justify-content-end gap-2">
-                    <button type="submit" asp-page-handler="TestConnection" class="btn btn-info">
-                        <i class="bi bi-send-check"></i> Test Connection
-                    </button>
-                    <button type="submit" asp-page-handler="Save" class="btn btn-success">
-                        <i class="bi bi-save"></i> Save Settings
-                    </button>
+            </div>
+
+            <!-- Sender Information -->
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="bi bi-person-badge"></i> Sender Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold">From Email Address</label>
+                            <input type="email" class="form-control" asp-for="CurrentSettings.FromEmail" placeholder="noreply@example.com" />
+                            <div class="form-text">Must be verified with your SMTP provider</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">From Name</label>
+                            <input class="form-control" asp-for="CurrentSettings.FromName" placeholder="ATP Bulk Mailer" />
+                            <div class="form-text">Display name for emails</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Global CC Recipients -->
+            <div class="card mb-4 border-warning">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0"><i class="bi bi-people-fill"></i> Global CC Recipients</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info mb-3">
+                        <i class="bi bi-info-circle"></i> <strong>What are Global CC Recipients?</strong>
+                        <p class="mb-0 mt-2">These email addresses will be automatically CC'd on <strong>every email</strong> sent by the system, regardless of the recipients list.</p>
+                    </div>
+                    
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-envelope-plus"></i> CC Email Addresses
+                    </label>
+                    <input class="form-control form-control-lg" asp-for="CurrentSettings.GlobalCc" 
+                           placeholder="email1@example.com; email2@example.com; email3@example.com" />
+                    <div class="form-text mt-2">
+                        <i class="bi bi-arrow-right"></i> Separate multiple email addresses with semicolons (<code>;</code>)
+                        <br /><i class="bi bi-arrow-right"></i> Example: <code>manager@company.com; admin@company.com</code>
+                        <br /><i class="bi bi-arrow-right"></i> Leave blank to disable global CC
+                    </div>
+                    
+                    @if (!string.IsNullOrWhiteSpace(Model.CurrentSettings.GlobalCc))
+                    {
+                        <div class="mt-3 p-3 bg-light rounded">
+                            <small class="text-muted fw-bold">Currently configured:</small>
+                            <div class="mt-2">
+                                @foreach (var email in Model.CurrentSettings.GlobalCc.Split(';', StringSplitOptions.RemoveEmptyEntries).Select(e => e.Trim()))
+                                {
+                                    <span class="badge bg-warning text-dark me-2 mb-2">
+                                        <i class="bi bi-envelope"></i> @email
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    }
                 </div>
             </div>
         </form>
 
-        <div class="card">
-            <div class="card-header"><h5 class="mb-0">Setup Guide</h5></div>
+        <!-- Setup Guide -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-book"></i> Setup Guide</h5>
+            </div>
             <div class="card-body">
-                <h6>Brevo (Recommended) Configuration</h6>
-                <ol>
-                    <li>Go to <a href="https://app.brevo.com" target="_blank">Brevo Dashboard</a></li>
-                    <li>Navigate to <strong>Settings ? SMTP & API</strong></li>
-                    <li>Click <strong>Generate a new SMTP key</strong></li>
-                    <li>Copy the generated SMTP key</li>
-                    <li>Use settings:
-                        <ul>
-                            <li>Host: <code>smtp-relay.brevo.com</code></li>
-                            <li>Port: <code>587</code></li>
-                            <li>Username: Your Brevo login email</li>
-                            <li>Password: The SMTP key you generated</li>
-                            <li>SSL: <strong>Enabled</strong></li>
-                        </ul>
-                    </li>
-                    <li>Verify your <strong>From Email</strong> in Brevo ? Senders section</li>
-                </ol>
+                <div class="accordion" id="setupAccordion">
+                    
+                    <!-- Production SMTP -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#prodSmtp">
+                                <i class="bi bi-cloud"></i> <strong class="ms-2">Production SMTP Setup</strong>
+                            </button>
+                        </h2>
+                        <div id="prodSmtp" class="accordion-collapse collapse" data-bs-parent="#setupAccordion">
+                            <div class="accordion-body">
+                                <h6>Common SMTP Providers:</h6>
+                                
+                                <div class="mb-3">
+                                    <strong>Option 1: Brevo (Recommended - 300 emails/day FREE)</strong>
+                                    <ol class="mb-0">
+                                        <li>Go to <a href="https://app.brevo.com" target="_blank">app.brevo.com</a></li>
+                                        <li>Navigate to Settings ? SMTP & API</li>
+                                        <li>Generate a new SMTP key</li>
+                                        <li>Use settings:
+                                            <ul>
+                                                <li>Host: <code>smtp-relay.brevo.com</code></li>
+                                                <li>Port: <code>587</code></li>
+                                                <li>Username: Your Brevo login email</li>
+                                                <li>Password: The SMTP key you generated</li>
+                                                <li>SSL: <strong>Enabled</strong></li>
+                                            </ul>
+                                        </li>
+                                    </ol>
+                                </div>
 
-                <h6 class="mt-3">PaperCut SMTP (Debugging)</h6>
-                <ol>
-                    <li>Download <a href="https://github.com/ChangemakerStudios/Papercut-SMTP/releases" target="_blank">PaperCut SMTP</a></li>
-                    <li>Run PaperCut.exe</li>
-                    <li>Click "Options" ? Ensure port is 25 (default)</li>
-                    <li>Use "PaperCut" preset above</li>
-                    <li>Emails appear in PaperCut window (not sent to real recipients)</li>
-                </ol>
+                                <div class="mb-3">
+                                    <strong>Option 2: SendGrid</strong>
+                                    <ul class="mb-0">
+                                        <li>Host: <code>smtp.sendgrid.net</code></li>
+                                        <li>Port: <code>587</code> or <code>465</code></li>
+                                        <li>Username: <code>apikey</code></li>
+                                        <li>Password: Your SendGrid API key</li>
+                                        <li>SSL: <strong>Enabled</strong></li>
+                                    </ul>
+                                </div>
 
-                <div class="alert alert-success mt-3">
-                    <strong><i class="bi bi-shield-check"></i> Why Brevo?</strong>
-                    <ul class="mb-0">
-                        <li><strong>300 emails/day FREE</strong> (9,000/month)</li>
-                        <li>More secure than Gmail App Passwords</li>
-                        <li>Professional email sending</li>
-                        <li>Built-in analytics & tracking</li>
-                        <li>Better deliverability for bulk emails</li>
-                    </ul>
-                </div>
+                                <div>
+                                    <strong>Option 3: Mailgun</strong>
+                                    <ul class="mb-0">
+                                        <li>Host: <code>smtp.mailgun.org</code></li>
+                                        <li>Port: <code>587</code></li>
+                                        <li>Username: Your Mailgun SMTP username</li>
+                                        <li>Password: Your Mailgun SMTP password</li>
+                                        <li>SSL: <strong>Enabled</strong></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-                <div class="alert alert-warning mt-3">
-                    <strong>Security Note:</strong> SMTP credentials are stored in session memory only. They are cleared when you close the browser or after 30 minutes of inactivity.
+                    <!-- PaperCut Testing -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#papercut">
+                                <i class="bi bi-bug"></i> <strong class="ms-2">PaperCut SMTP (Local Testing)</strong>
+                            </button>
+                        </h2>
+                        <div id="papercut" class="accordion-collapse collapse" data-bs-parent="#setupAccordion">
+                            <div class="accordion-body">
+                                <p><strong>PaperCut SMTP</strong> is a local email viewer for testing. Emails are captured locally and not sent to real recipients.</p>
+                                <ol>
+                                    <li>Download <a href="https://github.com/ChangemakerStudios/Papercut-SMTP/releases" target="_blank">PaperCut SMTP</a></li>
+                                    <li>Run PaperCut.exe</li>
+                                    <li>Ensure port is set to 25 (default)</li>
+                                    <li>Click "Use PaperCut (Testing)" button above</li>
+                                    <li>Send test emails - they'll appear in PaperCut window</li>
+                                </ol>
+                                <div class="alert alert-warning mb-0">
+                                    <i class="bi bi-exclamation-triangle"></i> <strong>Testing Only:</strong> Emails are NOT sent to real recipients when using PaperCut.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Security & Storage -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#security">
+                                <i class="bi bi-shield-lock"></i> <strong class="ms-2">Security & Storage Information</strong>
+                            </button>
+                        </h2>
+                        <div id="security" class="accordion-collapse collapse" data-bs-parent="#setupAccordion">
+                            <div class="accordion-body">
+                                <h6>How Settings are Stored:</h6>
+                                <ul>
+                                    <li><strong>File Storage:</strong> <code>App_Data/smtp-settings.json</code></li>
+                                    <li><strong>Session Storage:</strong> In-memory cache (30 minutes)</li>
+                                    <li><strong>Persistence:</strong> Settings survive application restarts</li>
+                                </ul>
+
+                                <h6 class="mt-3">Security Notes:</h6>
+                                <div class="alert alert-warning">
+                                    <ul class="mb-0">
+                                        <li><i class="bi bi-shield-check"></i> Settings file is excluded from Git (<code>.gitignore</code>)</li>
+                                        <li><i class="bi bi-shield-check"></i> Not accessible via HTTP</li>
+                                        <li><i class="bi bi-exclamation-triangle"></i> Do NOT commit <code>App_Data/</code> to source control</li>
+                                        <li><i class="bi bi-info-circle"></i> For production: Consider Azure Key Vault or environment variables</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
+
     </div>
 </div>

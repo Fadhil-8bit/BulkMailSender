@@ -1,4 +1,5 @@
 using BulkMailSender.Services;
+using BulkMailSender.Middleware;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 namespace BulkMailSender
@@ -53,6 +54,7 @@ namespace BulkMailSender
             
             // Register custom services
             builder.Services.AddScoped<IZipExtractionService, ZipExtractionService>();
+            builder.Services.AddSingleton<SettingsStorageService>();
             
             // Register background job services
             builder.Services.AddSingleton<EmailSendQueueService>();
@@ -77,6 +79,9 @@ namespace BulkMailSender
 
             // Enable session middleware (MUST be before UseAuthorization)
             app.UseSession();
+
+            // Auto-load SMTP settings from persistent storage into session
+            app.UseSettingsLoader();
 
             app.UseAuthorization();
 

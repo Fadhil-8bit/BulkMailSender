@@ -10,4 +10,5 @@ public class SmtpSettings
     public string FromEmail { get; set; } = string.Empty;
     public string FromName { get; set; } = string.Empty;
     public int TimeoutSeconds { get; set; } = 30;
+    public string GlobalCc { get; set; } = string.Empty; // Semicolon-separated list of global CC emails
 }

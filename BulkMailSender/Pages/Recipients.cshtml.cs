@@ -19,6 +19,9 @@ public class RecipientsModel : PageModel
     public string? ExtractionPath { get; set; }
     public bool HasUploadData { get; set; }
 
+    // Global CC from SMTP settings
+    public string? GlobalCc { get; set; }
+
     // Parsed recipients
     public List<DebtorRecipient> Recipients { get; set; } = new();
 
@@ -44,6 +47,21 @@ public class RecipientsModel : PageModel
         if (!HasUploadData)
         {
             _logger.LogWarning("Recipients page accessed without upload data in session");
+        }
+
+        // Load global CC from SMTP settings
+        var smtpJson = HttpContext.Session.GetString("SmtpSettings");
+        if (!string.IsNullOrEmpty(smtpJson))
+        {
+            try
+            {
+                var smtpSettings = JsonSerializer.Deserialize<SmtpSettings>(smtpJson);
+                GlobalCc = smtpSettings?.GlobalCc;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load SMTP settings from session");
+            }
         }
 
         // Load previously parsed recipients from session if available

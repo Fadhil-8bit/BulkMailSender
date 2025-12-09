@@ -362,3 +362,9 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /BulkMailSender/wwwroot/uploads/
+
+# App Data - Persistent settings with sensitive credentials
+App_Data/
+*.json
+!appsettings.json
+!appsettings.*.json

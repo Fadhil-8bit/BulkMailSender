@@ -172,6 +172,33 @@ public class BackgroundEmailSendService : BackgroundService
                 foreach (var r in recipientList.Where(x => x.Label == EmailLabel.Cc)) msg.CC.Add(r.Email);
                 foreach (var r in recipientList.Where(x => x.Label == EmailLabel.Bcc)) msg.Bcc.Add(r.Email);
 
+                // Add global CC recipients
+                if (!string.IsNullOrWhiteSpace(job.SmtpSettings?.GlobalCc))
+                {
+                    var globalCcEmails = job.SmtpSettings.GlobalCc
+                        .Split(';', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(e => e.Trim())
+                        .Where(e => !string.IsNullOrWhiteSpace(e));
+
+                    foreach (var email in globalCcEmails)
+                    {
+                        try
+                        {
+                            // Validate email before adding
+                            var addr = new MailAddress(email);
+                            // Avoid duplicate CC
+                            if (!msg.CC.Any(cc => cc.Address.Equals(email, StringComparison.OrdinalIgnoreCase)))
+                            {
+                                msg.CC.Add(addr);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning("Invalid global CC email '{Email}': {Error}", email, ex.Message);
+                        }
+                    }
+                }
+
                 // Replace placeholders
                 var org = recipientList.FirstOrDefault()?.OrganizationName ?? "{organization name}";
                 var notes = recipientList.FirstOrDefault()?.Notes ?? "{notes}";

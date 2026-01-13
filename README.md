@@ -148,45 +148,45 @@ docker run -d `
 
 ```
 BulkMailSender/
-??? Pages/                          # Razor Pages
-?   ??? Index.cshtml               # Home page
-?   ??? Upload.cshtml              # ZIP upload
-?   ??? Recipients.cshtml          # Recipient management
-?   ??? Template.cshtml            # Email template editor
-?   ??? Preview.cshtml             # Email preview
-?   ??? Settings.cshtml            # SMTP configuration
-?   ??? SendResults.cshtml         # Send progress
-?   ??? *.cshtml.cs               # Page models
-?
-??? Services/                       # Business logic
-?   ??? SettingsStorageService     # Persistent settings
-?   ??? SettingsLoaderMiddleware   # Auto-load settings
-?   ??? ZipExtractionService       # ZIP processing
-?   ??? EmailSendQueueService      # Email queue
-?   ??? BackgroundEmailSendService # Async sender
-?
-??? Models/                         # Data models
-?   ??? SmtpSettings               # SMTP configuration
-?   ??? DebtorRecipient            # Email recipient
-?   ??? EmailSendJob               # Send job tracking
-?   ??? FileAttachmentInfo         # Attachment info
-?
-??? Middleware/                     # Custom middleware
-?   ??? SettingsLoaderMiddleware   # Auto-load settings on startup
-?
-??? App_Data/                       # Runtime data
-?   ??? uploads/                   # Uploaded ZIP files
-?   ??? extract/                   # Extracted files
-?   ??? smtp-settings.json         # Saved SMTP config
-?
-??? Properties/
-?   ??? launchSettings.json        # Development settings
-?
-??? appsettings.json               # Configuration
-??? Program.cs                     # Startup configuration
-??? Dockerfile                     # Development Docker
-??? Dockerfile.production          # Production Docker
-??? README.md                      # This file
+├── Pages/                         # Razor Pages
+│   ├── Index.cshtml               # Home page
+│   ├── Upload.cshtml              # ZIP upload
+│   ├── Recipients.cshtml          # Recipient management
+│   ├── Template.cshtml            # Email template editor
+│   ├── Preview.cshtml             # Email preview
+│   ├── Settings.cshtml            # SMTP configuration
+│   ├── SendResults.cshtml         # Send progress
+│   └── *.cshtml.cs                # Page models
+│
+├── Services/                      # Business logic
+│   ├── SettingsStorageService     # Persistent settings
+│   ├── SettingsLoaderMiddleware   # Auto-load settings
+│   ├── ZipExtractionService       # ZIP processing
+│   ├── EmailSendQueueService      # Email queue
+│   └── BackgroundEmailSendService # Async sender
+│
+├── Models/                        # Data models
+│   ├── SmtpSettings               # SMTP configuration
+│   ├── DebtorRecipient            # Email recipient
+│   ├── EmailSendJob               # Send job tracking
+│   └── FileAttachmentInfo         # Attachment info
+│
+├── Middleware/                    # Custom middleware
+│   └── SettingsLoaderMiddleware   # Auto-load settings on startup
+│
+├── App_Data/                      # Runtime data
+│   ├── uploads/                   # Uploaded ZIP files
+│   ├── extract/                   # Extracted files
+│   └── smtp-settings.json         # Saved SMTP config
+│
+├── Properties/
+│   └── launchSettings.json        # Development settings
+│
+├── appsettings.json               # Configuration
+├── Program.cs                     # Startup configuration
+├── Dockerfile                     # Development Docker
+├── Dockerfile.production          # Production Docker
+└── README.md                      # This file
 ```
 
 ---

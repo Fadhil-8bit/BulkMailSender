@@ -2,13 +2,30 @@
 
 A powerful ASP.NET Core Razor Pages application for sending bulk emails with advanced features like ZIP file extraction, recipient management, email templates, and persistent SMTP configuration.
 
-**Live Demo:** Coming soon  
+
 **License:** MIT  
 **Status:** Production Ready
 
 ---
 
 ## Features
+
+
+### Screenshots
+- **SMTP Configuration** - Flexible SMTP settings with presets.
+  (View: <a href="screenshots/SMTP%20Settings/SMTP%20Settings%20-%20BulkMailSender-1.png" target="_blank">Top</a> | <a href="screenshots/SMTP%20Settings/SMTP%20Settings%20-%20BulkMailSender-2.png" target="_blank">Middle</a> | <a href="screenshots/SMTP%20Settings/SMTP%20Settings%20-%20BulkMailSender-3.png" target="_blank">Bottom</a>)
+
+- **Recipient Management** - Import recipients from CSV with validation.
+  (View: <a href="screenshots/Upload%20Recipients/Upload%20Recipients%20-%20BulkMailSender-1.png" target="_blank">Upload</a> | <a href="screenshots/Upload%20Recipients/Upload%20Recipients%20-%20BulkMailSender-2.png" target="_blank">Validation</a>)
+
+- **Email Attachments** - ZIP file extraction and processing.
+  (View: <a href="screenshots/Upload%20Attachments/Upload%20Attachments%20-%20BulkMailSender-1.png" target="_blank">Part 1</a> | <a href="screenshots/Upload%20Attachments/Upload%20Attachments%20-%20BulkMailSender-2.png" target="_blank">Part 2</a> | <a href="screenshots/Upload%20Attachments/Upload%20Attachments%20-%20BulkMailSender-3.png" target="_blank">Part 3</a>)
+
+- **Email Editor** - Create custom templates with variables.
+  (View: <a href="screenshots/Draft%20Email/Draft%20Email%20-%20BulkMailSender-1.png" target="_blank">Editor</a> | <a href="screenshots/Draft%20Email/Draft%20Email%20-%20BulkMailSender-2.png" target="_blank">Options</a> | <a href="screenshots/Draft%20Email/Draft%20Email%20-%20BulkMailSender-3.png" target="_blank">Full View</a>)
+
+- **Review & Send** - Preview emails before sending.
+  (View: <a href="screenshots/Review%20Before%20Sending/Review%20Before%20Sending%20-%20BulkMailSender-1.png" target="_blank">Preview</a> | <a href="screenshots/Review%20Before%20Sending/Review%20Before%20Sending%20-%20BulkMailSender-2.png" target="_blank">Send Console</a>)
 
 ### Core Features
 - Bulk Email Sending - Send emails to hundreds of recipients efficiently

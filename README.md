@@ -396,29 +396,9 @@ docker run -d `
 
 ---
 
-## Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch (git checkout -b feature/amazing-feature)
-3. Commit changes (git commit -m 'Add amazing feature')
-4. Push to branch (git push origin feature/amazing-feature)
-5. Open a Pull Request
-
----
-
 ## License
 
 This project is licensed under the MIT License - see LICENSE file for details.
-
----
-
-## Support
-
-- Issues: [GitHub Issues](https://github.com/Pandaemo/BulkMailSender/issues)
-- Discussions: [GitHub Discussions](https://github.com/Pandaemo/BulkMailSender/discussions)
-- Email: contact@example.com
 
 ---
 
@@ -448,36 +428,5 @@ This project is licensed under the MIT License - see LICENSE file for details.
 
 ---
 
-## Roadmap
 
-- SQL Server support
-- PostgreSQL support
-- Email templates library
-- Advanced reporting
-- API for third-party integration
-- Web-based file manager
-- Two-factor authentication
-- Email scheduling
-- Retry logic for failed emails
-- Webhook notifications
 
----
-
-## Acknowledgments
-
-- Bootstrap - UI Framework
-- Brevo - SMTP Provider
-- PaperCut - Email Testing
-- ASP.NET Core - Framework
-
----
-
-## Show Your Support
-
-If you find this project helpful, please star the repository!
-
----
-
-**Built with love by Pandaemo**
-
-Last Updated: January 28, 2025

@@ -344,17 +344,6 @@ docker restart bulkmail
 dotnet run
 ```
 
-See HTTPS_SSL_CERTIFICATE_GUIDE.md for more troubleshooting.
-
----
-
-## Documentation
-
-- HTTPS & SSL Setup (HTTPS_SSL_CERTIFICATE_GUIDE.md) - Configure HTTPS for Docker
-- Settings Guide (SETTINGS_PAGE_REDESIGN.md) - SMTP configuration details
-- Email Persistence (SETTINGS_PERSISTENCE_FIX.md) - How settings are saved
-- Architecture Overview (COMPLETE_SETTINGS_GUIDE.md) - System design
-
 ---
 
 ## Deployment

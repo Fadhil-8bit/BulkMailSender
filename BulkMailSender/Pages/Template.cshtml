@@ -65,8 +65,8 @@
                                 <option value="Overdue">Overdue</option>
                             </select>
                             <span class="invalid-feedback d-block">@Html.ValidationMessage(nameof(Model.TemplateType))</span>
-                            <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="btnCustomize" style="display: none;">
-                                <i class="bi bi-pencil-square"></i> Customize Template
+                            <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="btnEditMaster" style="display: none;">
+                                <i class="bi bi-pencil-square"></i> Edit Master Template
                             </button>
                         </div>
                         
@@ -218,7 +218,7 @@ Direct Line: 018-7864855</pre>
         <div class="modal-content">
             <form method="post" id="customizeForm">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="customizeModalLabel">Customize Email Template</h5>
+                    <h5 class="modal-title" id="customizeModalLabel">Edit Master Template</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -244,8 +244,8 @@ Direct Line: 018-7864855</pre>
                     </button>
                     <div>
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" asp-page-handler="SaveCustomTemplate" class="btn btn-primary">
-                            <i class="bi bi-save"></i> Save Changes
+                        <button type="submit" asp-page-handler="SaveMasterTemplate" class="btn btn-primary">
+                            <i class="bi bi-save"></i> Save Master Template
                         </button>
                     </div>
                 </div>
@@ -261,7 +261,7 @@ Direct Line: 018-7864855</pre>
             var periodContainer = document.getElementById("periodContainer");
             var periodInput = document.getElementById("Period");
             var previewSelectSection = document.getElementById("previewSelectSection");
-            var btnCustomize = document.getElementById("btnCustomize");
+            var btnEditMaster = document.getElementById("btnEditMaster");
             
             // Raw templates from server
             var rawTemplates = @Html.Raw(JsonSerializer.Serialize(Model.RawTemplates));
@@ -272,8 +272,8 @@ Direct Line: 018-7864855</pre>
             var modalSubject = document.getElementById("modalSubject");
             var modalBody = document.getElementById("modalBody");
 
-            if (btnCustomize) {
-                btnCustomize.addEventListener('click', function() {
+            if (btnEditMaster) {
+                btnEditMaster.addEventListener('click', function() {
                     var type = typeSelect ? typeSelect.value : "";
                     if (!type) {
                         alert("Please select an Email Type first.");
@@ -298,8 +298,8 @@ Direct Line: 018-7864855</pre>
                 var step1Valid = false;
 
                 // Show/Hide Customize Button
-                if (btnCustomize) {
-                    btnCustomize.style.display = type ? "inline-block" : "none";
+                if (btnEditMaster) {
+                    btnEditMaster.style.display = type ? "inline-block" : "none";
                 }
 
                 if (type === "SoaInv") {

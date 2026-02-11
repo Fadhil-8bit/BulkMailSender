@@ -47,16 +47,19 @@ public class TemplateModel : PageModel
 
     public Dictionary<string, string> RawTemplates { get; set; } = new();
 
-    public void OnGet()
+    public async Task OnGetAsync()
     {
         HasUploadData = !string.IsNullOrEmpty(HttpContext.Session.GetString("ExtractionPath"));
         LoadAvailableDebtorCodes();
         
         // Load raw templates for customization
-        RawTemplates["SoaInv_Subject"] = _templateService.GetRawSubject(Models.TemplateType.SoaInv);
-        RawTemplates["SoaInv_Body"] = _templateService.GetRawBody(Models.TemplateType.SoaInv);
-        RawTemplates["Overdue_Subject"] = _templateService.GetRawSubject(Models.TemplateType.Overdue);
-        RawTemplates["Overdue_Body"] = _templateService.GetRawBody(Models.TemplateType.Overdue);
+        var soaTemplate = await _templateService.GetTemplateAsync(Models.TemplateType.SoaInv);
+        var overdueTemplate = await _templateService.GetTemplateAsync(Models.TemplateType.Overdue);
+
+        RawTemplates["SoaInv_Subject"] = soaTemplate.Subject;
+        RawTemplates["SoaInv_Body"] = soaTemplate.Body;
+        RawTemplates["Overdue_Subject"] = overdueTemplate.Subject;
+        RawTemplates["Overdue_Body"] = overdueTemplate.Body;
 
         // Check if there's a saved template and pre-populate fields
         var templateJson = HttpContext.Session.GetString("EmailTemplate");
@@ -120,7 +123,7 @@ public class TemplateModel : PageModel
         }
     }
 
-    public IActionResult OnPostPreview()
+    public async Task<IActionResult> OnPostPreviewAsync()
     {
         // CRITICAL: Clear ModelState to prevent validation errors from [BindProperty] fields
         // that might be incomplete or validated differently during preview
@@ -164,9 +167,26 @@ public class TemplateModel : PageModel
 
         var orgName = string.IsNullOrWhiteSpace(SelectedOrganizationName) ? "{organization name}" : SelectedOrganizationName;
         var notes = string.IsNullOrWhiteSpace(SelectedNotes) ? "{notes}" : SelectedNotes;
+        var periodVal = string.IsNullOrWhiteSpace(Period) ? "<SET PERIOD>" : Period.Trim();
 
-        SubjectPreview = _templateService.BuildSubject(TemplateType.Value, Period, DebtorCode, orgName);
-        BodyPreview = _templateService.BuildBody(TemplateType.Value, notes);
+        var template = await _templateService.GetTemplateAsync(TemplateType.Value);
+        
+        var subjectValues = new Dictionary<string, string>
+        {
+             { "period", periodVal },
+             { "debtor_code", DebtorCode},
+             { "organization_name", orgName }
+        };
+        SubjectPreview = _templateService.RenderTemplate(template.Subject, subjectValues);
+
+        var bodyValues = new Dictionary<string, string>
+        {
+            { "notes", notes },
+            { "period", periodVal },
+             { "debtor_code", DebtorCode},
+             { "organization_name", orgName }
+        };
+        BodyPreview = _templateService.RenderTemplate(template.Body, bodyValues);
         
         _logger.LogInformation("Preview generated for debtor: {DebtorCode}, Type: {Type}, Period: {Period}", 
             DebtorCode, TemplateType, Period);
@@ -174,12 +194,10 @@ public class TemplateModel : PageModel
         return Page();
     }
 
-    public IActionResult OnPost()
+    public async Task<IActionResult> OnPostAsync()
     {
-        // This is the "Next" action
         HasUploadData = !string.IsNullOrEmpty(HttpContext.Session.GetString("ExtractionPath"));
         
-        // 1. Validate
         if (!TemplateType.HasValue || (TemplateType == Models.TemplateType.SoaInv && string.IsNullOrWhiteSpace(Period)))
         {
              LoadAvailableDebtorCodes();
@@ -187,48 +205,25 @@ public class TemplateModel : PageModel
              TempData["ErrorMessage"] = "Please complete the configuration.";
              return Page();
         }
-        
-        // 2. Save
-        var template = new SavedTemplate
-        {
-            TemplateType = TemplateType.Value,
-            Period = Period?.Trim() ?? string.Empty,
-            DebtorCode = "{debtor code}",
-            OrganizationName = "{organization name}",
-            Notes = "{notes}",
-            Subject = _templateService.BuildSubject(TemplateType.Value, Period, "{debtor code}", "{organization name}"),
-            Body = _templateService.BuildBody(TemplateType.Value, "{notes}")
-        };
-        
+
+        var template = await CreateDraftTemplateAsync(TemplateType.Value, Period);
         HttpContext.Session.SetString("EmailTemplate", JsonSerializer.Serialize(template));
         
-        // 3. Redirect to Preview
         return RedirectToPage("/Preview");
     }
 
-    public IActionResult OnPostSave()
+    public async Task<IActionResult> OnPostSaveAsync()
     {
         HasUploadData = !string.IsNullOrEmpty(HttpContext.Session.GetString("ExtractionPath"));
         LoadAvailableDebtorCodes();
 
-        // Validate
         if (!TemplateType.HasValue || (TemplateType == Models.TemplateType.SoaInv && string.IsNullOrWhiteSpace(Period)))
         {
              TempData["ErrorMessage"] = "Please complete all fields in Step 1 before saving.";
              return Page();
         }
 
-        // Create and save template to session
-        var template = new SavedTemplate
-        {
-            TemplateType = TemplateType.Value,
-            Period = Period?.Trim() ?? string.Empty,
-            DebtorCode = "{debtor code}",
-            OrganizationName = "{organization name}",
-            Notes = "{notes}",
-            Subject = _templateService.BuildSubject(TemplateType.Value, Period, "{debtor code}", "{organization name}"),
-            Body = _templateService.BuildBody(TemplateType.Value, "{notes}")
-        };
+        var template = await CreateDraftTemplateAsync(TemplateType.Value, Period);
         
         try
         {
@@ -236,12 +231,28 @@ public class TemplateModel : PageModel
             _logger.LogInformation("Draft template saved. Type: {Type}, Period: {Period}", TemplateType.Value, Period);
             TempData["SuccessMessage"] = "Draft saved successfully. Ready for review.";
             
-            // Generate preview for current page if user hasn't previewed yet (optional, but good UX)
-             if (string.IsNullOrEmpty(SubjectPreview) && !string.IsNullOrEmpty(DebtorCode))
+            if (string.IsNullOrEmpty(SubjectPreview) && !string.IsNullOrEmpty(DebtorCode))
             {
                LoadSelectedDebtorInfo();
-               SubjectPreview = _templateService.BuildSubject(TemplateType.Value, Period, DebtorCode, SelectedOrganizationName ?? "{org}");
-               BodyPreview = _templateService.BuildBody(TemplateType.Value, SelectedNotes ?? "{notes}");
+               
+               // Generate preview for current page
+               var templateContent = await _templateService.GetTemplateAsync(TemplateType.Value);
+               var periodVal = Period?.Trim() ?? string.Empty;
+               var orgVal = SelectedOrganizationName ?? "{org}";
+               var notesVal = SelectedNotes ?? "{notes}";
+
+               SubjectPreview = _templateService.RenderTemplate(templateContent.Subject, new Dictionary<string, string> {
+                    { "period", periodVal },
+                    { "debtor_code", DebtorCode },
+                    { "organization_name", orgVal }
+               });
+
+               BodyPreview = _templateService.RenderTemplate(templateContent.Body, new Dictionary<string, string> {
+                    { "notes", notesVal },
+                    { "period", periodVal },
+                    { "debtor_code", DebtorCode },
+                    { "organization_name", orgVal }
+               });
             }
         }
         catch (Exception ex)
@@ -251,15 +262,41 @@ public class TemplateModel : PageModel
             return Page();
         }
         
-        // Removed redirect, just stay on page (like upload/recipient do with next button)
-        // Or if the user clicked "Save draft", maybe just stay.
-        // But the button was "Save Draft".
-        // The "Next" button goes to Review page.
-        
         return Page();
     }
 
-    public async Task<IActionResult> OnPostSaveCustomTemplateAsync()
+    private async Task<SavedTemplate> CreateDraftTemplateAsync(TemplateType type, string? period)
+    {
+        var templateContent = await _templateService.GetTemplateAsync(type);
+        var periodVal = period?.Trim() ?? string.Empty;
+
+        var subjectValues = new Dictionary<string, string>
+        {
+             { "period", periodVal },
+             { "debtor_code", "{debtor code}"},
+             { "organization_name", "{organization name}" }
+        };
+        var bodyValues = new Dictionary<string, string>
+        {
+            { "notes", "{notes}" },
+             { "period", periodVal },
+             { "debtor_code", "{debtor code}"},
+             { "organization_name", "{organization name}" }
+        };
+
+        return new SavedTemplate
+        {
+            TemplateType = type,
+            Period = periodVal,
+            DebtorCode = "{debtor code}",
+            OrganizationName = "{organization name}",
+            Notes = "{notes}",
+            Subject = _templateService.RenderTemplate(templateContent.Subject, subjectValues),
+            Body = _templateService.RenderTemplate(templateContent.Body, bodyValues)
+        };
+    }
+
+    public async Task<IActionResult> OnPostSaveMasterTemplateAsync()
     {
         if (!TemplateType.HasValue)
         {
@@ -273,8 +310,8 @@ public class TemplateModel : PageModel
             return RedirectToPage();
         }
 
-        await _templateService.SaveUserTemplateAsync(TemplateType.Value, EditSubject, EditBody);
-        TempData["SuccessMessage"] = "Template customization saved successfully.";
+        await _templateService.SaveCustomTemplateAsync(TemplateType.Value, EditSubject, EditBody);
+        TempData["SuccessMessage"] = "Master template saved successfully.";
         return RedirectToPage();
     }
 

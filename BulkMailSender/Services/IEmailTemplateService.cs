@@ -4,11 +4,8 @@ namespace BulkMailSender.Services;
 
 public interface IEmailTemplateService
 {
-    string ReplacePlaceholders(string template, Dictionary<string, string> values);
-    string BuildSubject(TemplateType type, string? period, string debtorCode, string organization);
-    string BuildBody(TemplateType type, string? notes);
-    Task SaveUserTemplateAsync(TemplateType type, string subject, string body);
+    Task<EmailTemplateContent> GetTemplateAsync(TemplateType type);
+    Task SaveCustomTemplateAsync(TemplateType type, string subject, string body);
+    string RenderTemplate(string template, Dictionary<string, string> placeholders);
     Task ResetUserTemplateAsync();
-    string GetRawSubject(TemplateType type);
-    string GetRawBody(TemplateType type);
 }

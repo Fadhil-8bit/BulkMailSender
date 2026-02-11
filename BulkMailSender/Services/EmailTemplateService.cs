@@ -53,7 +53,7 @@ public class EmailTemplateService : IEmailTemplateService
         }
     }
 
-    public async Task SaveUserTemplateAsync(TemplateType type, string subject, string body)
+    public async Task SaveCustomTemplateAsync(TemplateType type, string subject, string body)
     {
         string subjectKey = type == TemplateType.SoaInv ? "SoaInv_Subject" : "Overdue_Subject";
         string bodyKey = type == TemplateType.SoaInv ? "SoaInv_Body" : "Overdue_Body";
@@ -118,65 +118,29 @@ public class EmailTemplateService : IEmailTemplateService
         }
     }
 
-    public string GetRawSubject(TemplateType type)
+    public async Task<EmailTemplateContent> GetTemplateAsync(TemplateType type)
     {
-        string key = type == TemplateType.SoaInv ? "SoaInv_Subject" : "Overdue_Subject";
-        return _templates.TryGetValue(key, out var val) ? val : string.Empty;
+        // Simple synchronous fetch from memory
+        string subjectKey = type == TemplateType.SoaInv ? "SoaInv_Subject" : "Overdue_Subject";
+        string bodyKey = type == TemplateType.SoaInv ? "SoaInv_Body" : "Overdue_Body";
+
+        var subject = _templates.TryGetValue(subjectKey, out var s) ? s : string.Empty;
+        var body = _templates.TryGetValue(bodyKey, out var b) ? b : string.Empty;
+
+        return await Task.FromResult(new EmailTemplateContent { Subject = subject, Body = body });
     }
 
-    public string GetRawBody(TemplateType type)
-    {
-        string key = type == TemplateType.SoaInv ? "SoaInv_Body" : "Overdue_Body";
-        return _templates.TryGetValue(key, out var val) ? val : string.Empty;
-    }
-
-    public string ReplacePlaceholders(string template, Dictionary<string, string> values)
+    public string RenderTemplate(string template, Dictionary<string, string> placeholders)
     {
         if (string.IsNullOrEmpty(template)) return string.Empty;
         
         var result = template;
-        foreach (var kvp in values)
+        foreach (var kvp in placeholders)
         {
             result = result.Replace($"{{{kvp.Key}}}", kvp.Value);
         }
         return result;
     }
 
-    public string BuildSubject(TemplateType type, string? period, string debtorCode, string organization)
-    {
-        period = string.IsNullOrWhiteSpace(period) ? "<SET PERIOD>" : period.Trim();
-        debtorCode = string.IsNullOrWhiteSpace(debtorCode) ? "{debtor code}" : debtorCode.Trim();
-        organization = string.IsNullOrWhiteSpace(organization) ? "{organization name}" : organization.Trim();
 
-        string templateKey = type == TemplateType.SoaInv ? "SoaInv_Subject" : "Overdue_Subject";
-        
-        if (_templates.TryGetValue(templateKey, out var template))
-        {
-             var values = new Dictionary<string, string>
-             {
-                 { "period", period },
-                 { "debtor_code", debtorCode },
-                 { "organization_name", organization }
-             };
-             return ReplacePlaceholders(template, values);
-        }
-
-        return string.Empty;
-    }
-
-    public string BuildBody(TemplateType type, string? notes)
-    {
-         string templateKey = type == TemplateType.SoaInv ? "SoaInv_Body" : "Overdue_Body";
-
-         if (_templates.TryGetValue(templateKey, out var template))
-         {
-            var notesText = string.IsNullOrWhiteSpace(notes) ? "{notes}" : notes.Trim();
-            var values = new Dictionary<string, string>
-            {
-                { "notes", notesText }
-            };
-            return ReplacePlaceholders(template, values);
-         }
-         return string.Empty;
-    }
 }

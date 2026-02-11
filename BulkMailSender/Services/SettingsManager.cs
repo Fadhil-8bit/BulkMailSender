@@ -36,6 +36,13 @@ public class SettingsManager : ISettingsManager
         }
     }
 
+    public string GetActiveProfileName()
+    {
+        var session = _httpContextAccessor.HttpContext?.Session;
+        var profileName = session?.GetString(DefaultProfileKey);
+        return string.IsNullOrEmpty(profileName) ? "Default" : profileName;
+    }
+
     public async Task<EmailSettings> GetActiveSettingsAsync()
     {
         // 1. Try to load from persistent storage using current profile

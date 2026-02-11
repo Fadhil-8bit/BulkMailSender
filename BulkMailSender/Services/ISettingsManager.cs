@@ -41,6 +41,11 @@ public interface ISettingsManager
     string CurrentProfileName { get; }
 
     /// <summary>
+    /// Gets the active profile name from the session, returning 'Default' if empty.
+    /// </summary>
+    string GetActiveProfileName();
+
+    /// <summary>
     /// Switches the active profile and loads its settings.
     /// </summary>
     Task SwitchProfileAsync(string profileName);

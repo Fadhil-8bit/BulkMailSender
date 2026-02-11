@@ -13,17 +13,20 @@ public class PreviewModel : PageModel
     private readonly ILogger<PreviewModel> _logger;
     private readonly EmailSendQueueService _queueService;
     private readonly EmailPresets _emailPresets;
+    private readonly ISettingsManager _settingsManager;
 
     public PreviewModel(
         IConfiguration configuration,
         ILogger<PreviewModel> logger,
         EmailSendQueueService queueService,
-        IOptions<EmailPresets> emailPresets)
+        IOptions<EmailPresets> emailPresets,
+        ISettingsManager settingsManager)
     {
         _configuration = configuration;
         _logger = logger;
         _queueService = queueService;
         _emailPresets = emailPresets.Value;
+        _settingsManager = settingsManager;
     }
 
     public bool HasUploadData { get; set; }
@@ -34,8 +37,13 @@ public class PreviewModel : PageModel
 
     public Dictionary<string, DebtorAttachmentsSummary> AttachmentsSummary { get; set; } = new();
 
+    public string ActiveProfileName { get; set; } = string.Empty;
+    public bool IsDebugProfile => (!string.IsNullOrEmpty(ActiveProfileName) && ActiveProfileName.Contains("debug", StringComparison.OrdinalIgnoreCase)) || ActiveProfileName == "localhost";
+
     public void OnGet()
     {
+        ActiveProfileName = _settingsManager.GetActiveProfileName();
+
         HasUploadData = !string.IsNullOrEmpty(HttpContext.Session.GetString("ExtractionPath"));
 
         // Load template

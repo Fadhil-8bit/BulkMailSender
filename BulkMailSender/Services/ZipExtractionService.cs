@@ -6,6 +6,9 @@ namespace BulkMailSender.Services;
 
 public class ZipExtractionService : IZipExtractionService
 {
+    private static readonly Regex _debtorStyleRegex = new Regex("^[A-Z0-9]+-[A-Z0-9]+$", RegexOptions.Compiled);
+    private static readonly Regex _fileNamePatternRegex = new Regex(@"^(.+?)\s+(INV|SOA|OD|OTHER)\s+(\d{4,6})$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     private readonly ILogger<ZipExtractionService> _logger;
 
     public ZipExtractionService(ILogger<ZipExtractionService> logger)
@@ -13,10 +16,11 @@ public class ZipExtractionService : IZipExtractionService
         _logger = logger;
     }
 
-    public async Task<UploadResult> ExtractAndCategorizeAsync(IFormFile zipFile, string extractPath)
+    public async Task<UploadResult> ExtractAndCategorizeAsync(IFormFile zipFile, string webRootPath, List<string>? validDebtorCodes = null, CancellationToken cancellationToken = default)
     {
         var result = new UploadResult();
         string tempZipPath = string.Empty;
+        string extractPath = string.Empty;
 
         try
         {
@@ -36,7 +40,20 @@ public class ZipExtractionService : IZipExtractionService
 
             _logger.LogInformation($"Starting upload: {zipFile.FileName}, Size: {zipFile.Length} bytes ({zipFile.Length / (1024.0 * 1024.0):F2} MB)");
 
-            // Create extraction directory if it doesn't exist
+            // Create uploads directory
+            var uploadsPath = Path.Combine(webRootPath, "uploads");
+            if (!Directory.Exists(uploadsPath))
+            {
+                Directory.CreateDirectory(uploadsPath);
+            }
+
+            // Create unique extraction path for this upload
+            extractPath = Path.Combine(uploadsPath, Guid.NewGuid().ToString());
+            
+            // Set the extraction path in the result
+            result.ExtractionPath = extractPath;
+
+            // Create extraction directory
             if (Directory.Exists(extractPath))
             {
                 Directory.Delete(extractPath, true);
@@ -50,15 +67,57 @@ public class ZipExtractionService : IZipExtractionService
             // Copy uploaded file to disk with buffering
             using (var fileStream = new FileStream(tempZipPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, useAsync: true))
             {
-                await zipFile.CopyToAsync(fileStream);
-                await fileStream.FlushAsync();
+                await zipFile.CopyToAsync(fileStream, cancellationToken);
+                await fileStream.FlushAsync(cancellationToken);
             }
 
             _logger.LogInformation($"File saved successfully. Size on disk: {new FileInfo(tempZipPath).Length} bytes");
 
             // Extract ZIP file from disk (not from stream)
             _logger.LogInformation("Starting ZIP extraction...");
-            await Task.Run(() => ZipFile.ExtractToDirectory(tempZipPath, extractPath, true));
+            await Task.Run(() => 
+            {
+                using (var archive = ZipFile.OpenRead(tempZipPath))
+                {
+                    int totalEntries = archive.Entries.Count;
+                    int extractedCount = 0;
+                    _logger.LogInformation($"Total entries to extract: {totalEntries}");
+
+                    foreach (var entry in archive.Entries)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        // Prevent Zip Slip vulnerability
+                        var destinationPath = Path.GetFullPath(Path.Combine(extractPath, entry.FullName));
+                        if (!destinationPath.StartsWith(Path.GetFullPath(extractPath), StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        if (string.IsNullOrEmpty(entry.Name))
+                        {
+                            // It's a directory
+                            Directory.CreateDirectory(destinationPath);
+                        }
+                        else
+                        {
+                            // It's a file, ensure directory exists
+                            var parentDir = Path.GetDirectoryName(destinationPath);
+                            if (parentDir != null)
+                            {
+                                Directory.CreateDirectory(parentDir);
+                            }
+                            entry.ExtractToFile(destinationPath, true);
+                        }
+
+                        extractedCount++;
+                        if (extractedCount % 50 == 0)
+                        {
+                            _logger.LogInformation($"Extracted {extractedCount} of {totalEntries} entries...");
+                        }
+                    }
+                }
+            });
 
             _logger.LogInformation($"ZIP file extracted to {extractPath}");
 
@@ -80,11 +139,10 @@ public class ZipExtractionService : IZipExtractionService
             // Categorize files by debtor code
             var debtorDict = new Dictionary<string, DebtorAttachment>(StringComparer.OrdinalIgnoreCase);
 
-            // Debtor code style regex: uppercase alphanumeric with single hyphen
-            var debtorStyleRegex = new Regex("^[A-Z0-9]+-[A-Z0-9]+$", RegexOptions.Compiled);
-
             foreach (var filePath in allFiles)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 var fileName = Path.GetFileNameWithoutExtension(filePath);
                 var extension = Path.GetExtension(filePath);
                 var fullFileName = Path.GetFileName(filePath);
@@ -92,7 +150,7 @@ public class ZipExtractionService : IZipExtractionService
                 // Pattern: {DebtorCode} {DocType} {CustomCode}
                 // Example: "3000-AT502 INV 12345" or "3000-AT015 OTHER 987654"
                 // Supports: INV, SOA, OD, OTHER (for other documents)
-                var match = Regex.Match(fileName, @"^(.+?)\s+(INV|SOA|OD|OTHER)\s+(\d{4,6})$", RegexOptions.IgnoreCase);
+                var match = _fileNamePatternRegex.Match(fileName);
 
                 if (match.Success)
                 {
@@ -102,12 +160,21 @@ public class ZipExtractionService : IZipExtractionService
                     var customCode = match.Groups[3].Value;
 
                     // Validate debtor code style
-                    if (!debtorStyleRegex.IsMatch(debtorCode))
+                    if (!_debtorStyleRegex.IsMatch(debtorCode))
                     {
                         result.UncategorizedFiles++;
                         result.Errors.Add($"Invalid debtor code style in file '{fullFileName}': '{debtorCodeRaw}'. Expected format like 3000-AT502.");
                         _logger.LogWarning("Invalid debtor code style: {Debtor} in file {File}", debtorCodeRaw, fullFileName);
                         continue; // skip categorization for this file
+                    }
+
+                    // Check if debtor code is in the valid list (if provided)
+                    if (validDebtorCodes != null && validDebtorCodes.Count > 0 && !validDebtorCodes.Contains(debtorCode, StringComparer.OrdinalIgnoreCase))
+                    {
+                        result.MissingRecipientFiles++;
+                        result.Errors.Add($"File found for debtor '{debtorCode}' but this debtor is not in the recipient list: '{fullFileName}'");
+                        _logger.LogWarning("Debtor code mismatch: {Debtor} in file {File} not found in recipients list", debtorCode, fullFileName);
+                        continue; // skip categorization
                     }
 
                     if (!debtorDict.ContainsKey(debtorCode))

@@ -52,7 +52,7 @@ public class UploadModel : PageModel
         }
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
         // Require recipients to be uploaded first
         var recipientsJson = HttpContext.Session.GetString("Recipients");
@@ -82,23 +82,38 @@ public class UploadModel : PageModel
         {
             _logger.LogInformation($"Processing ZIP file upload: {ZipFile.FileName}, Size: {ZipFile.Length} bytes");
 
-            // Create uploads directory
-            var uploadsPath = Path.Combine(_environment.WebRootPath, "uploads");
-            if (!Directory.Exists(uploadsPath))
+            // Get valid debtor codes from recipients (already checked that recipients exist)
+            List<string> validDebtorCodes = new List<string>();
+            try
             {
-                Directory.CreateDirectory(uploadsPath);
+                var recipientsList = JsonSerializer.Deserialize<List<DebtorRecipient>>(recipientsJson!);
+                if (recipientsList != null)
+                {
+                    validDebtorCodes = recipientsList
+                        .Select(r => r.DebtorCode)
+                        .Where(c => !string.IsNullOrWhiteSpace(c))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                 _logger.LogWarning(ex, "Failed to deserialize recipients for debtor code validation");
+                 // Continue without validation if deserialization fails? 
+                 // Or fail? Given previous logic, it seems OK to proceed but we lose validation.
+                 // However, the prompt implies we *should* pass them. I'll pass the empty list if it fails, effectively skipping validation?
+                 // No, empty list might mean "no valid debtors", so all files would be rejected if I implemented "if validCodes is not empty".
+                 // In my implementation: `if (validDebtorCodes != null && validDebtorCodes.Count > 0 ...)`
+                 // So if list is empty, validation is skipped. This is safe.
             }
 
-            // Create unique extraction path for this upload
-            var extractPath = Path.Combine(uploadsPath, Guid.NewGuid().ToString());
-
             // Extract and categorize files
-            UploadResult = await _zipExtractionService.ExtractAndCategorizeAsync(ZipFile, extractPath);
+            UploadResult = await _zipExtractionService.ExtractAndCategorizeAsync(ZipFile, _environment.WebRootPath, validDebtorCodes, cancellationToken);
 
             if (UploadResult.Success)
             {
                 // Store data in SESSION (not TempData) to avoid header size limits
-                HttpContext.Session.SetString("ExtractionPath", extractPath);
+                HttpContext.Session.SetString("ExtractionPath", UploadResult.ExtractionPath);
                 HttpContext.Session.SetString("UploadResult", JsonSerializer.Serialize(UploadResult));
                 
                 _logger.LogInformation($"Successfully processed {UploadResult.TotalFiles} files for {UploadResult.DebtorAttachments.Count} debtors");
@@ -106,7 +121,10 @@ public class UploadModel : PageModel
             else
             {
                 // Clean up on failure
-                await _zipExtractionService.CleanupExtractedFilesAsync(extractPath);
+                if (!string.IsNullOrEmpty(UploadResult.ExtractionPath))
+                {
+                    await _zipExtractionService.CleanupExtractedFilesAsync(UploadResult.ExtractionPath);
+                }
             }
         }
         catch (Exception ex)

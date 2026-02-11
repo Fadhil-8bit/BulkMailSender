@@ -8,5 +8,7 @@ public class UploadResult
     public int TotalFiles { get; set; }
     public int CategorizedFiles { get; set; }
     public int UncategorizedFiles { get; set; }
+    public int MissingRecipientFiles { get; set; }
+    public string ExtractionPath { get; set; } = string.Empty;
     public List<string> Errors { get; set; } = new();
 }

@@ -377,6 +377,7 @@
         const uploadBtn = document.getElementById('uploadBtn');
         const loadingOverlay = document.getElementById('loadingOverlay');
         const fileSizeInfo = document.getElementById('fileSizeInfo');
+        let isSubmitting = false;
 
         zipFileInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
@@ -428,14 +429,25 @@
                 return;
             }
 
+            // Set submitting flag
+            isSubmitting = true;
+
             // Show loading overlay
             loadingOverlay.style.display = 'block';
             uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Uploading... Please wait';
 
             // Prevent accidental page close
             window.onbeforeunload = function() {
+                // If we are submitting, don't show the warning
+                if (isSubmitting) return;
                 return "Upload in progress. Are you sure you want to leave?";
             };
+            
+            // Note: In Chrome/Edge, onbeforeunload behaves differently during form submission.
+            // If the submission takes a long time, the browser might show a spinner but not trigger 
+            // unload until the response headers come back. 
+            // The return value is often ignored for modern browsers unless there's user interaction.
 
             // Update status message periodically
             let dots = 0;

@@ -66,6 +66,7 @@ namespace BulkMailSender
             // Register background job services
             builder.Services.AddSingleton<EmailSendQueueService>();
             builder.Services.AddHostedService<BackgroundEmailSendService>();
+            builder.Services.AddHostedService<UploadCleanupBackgroundService>();
 
             var app = builder.Build();
 

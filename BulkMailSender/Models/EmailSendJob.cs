@@ -12,7 +12,7 @@ public class EmailSendJob
     public List<DebtorRecipient> Recipients { get; set; } = new();
     public UploadResult? UploadResult { get; set; }
     public SavedTemplate? Template { get; set; }
-    public SmtpSettings? SmtpSettings { get; set; }
+    public EmailSettings? SmtpSettings { get; set; }
 
     // Progress tracking
     public int TotalEmails { get; set; }

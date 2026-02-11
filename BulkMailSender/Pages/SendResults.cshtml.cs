@@ -111,8 +111,8 @@ public class SendResultsModel : PageModel
             var uploadResult = JsonSerializer.Deserialize<UploadResult>(uploadResultJson);
             var template = JsonSerializer.Deserialize<SavedTemplate>(templateJson);
             var smtp = string.IsNullOrEmpty(smtpJson) 
-                ? new SmtpSettings() 
-                : JsonSerializer.Deserialize<SmtpSettings>(smtpJson);
+                ? new EmailSettings() 
+                : JsonSerializer.Deserialize<EmailSettings>(smtpJson);
 
             // Filter recipients to only failed debtor codes
             var failedDebtorCodes = Results.Failed.Select(f => f.DebtorCode).ToHashSet(StringComparer.OrdinalIgnoreCase);

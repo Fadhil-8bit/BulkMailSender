@@ -3,6 +3,7 @@ using BulkMailSender.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using BulkMailSender.Services;
+using Microsoft.Extensions.Options;
 
 namespace BulkMailSender.Pages;
 
@@ -11,15 +12,18 @@ public class PreviewModel : PageModel
     private readonly IConfiguration _configuration;
     private readonly ILogger<PreviewModel> _logger;
     private readonly EmailSendQueueService _queueService;
+    private readonly EmailPresets _emailPresets;
 
     public PreviewModel(
         IConfiguration configuration,
         ILogger<PreviewModel> logger,
-        EmailSendQueueService queueService)
+        EmailSendQueueService queueService,
+        IOptions<EmailPresets> emailPresets)
     {
         _configuration = configuration;
         _logger = logger;
         _queueService = queueService;
+        _emailPresets = emailPresets.Value;
     }
 
     public bool HasUploadData { get; set; }
@@ -127,16 +131,17 @@ public class PreviewModel : PageModel
         var template = JsonSerializer.Deserialize<SavedTemplate>(templateJson);
 
         // Load SMTP settings from session or config
-        SmtpSettings smtp = null!;
+        EmailSettings smtp = null!;
         var smtpJson = HttpContext.Session.GetString("SmtpSettings");
         if (!string.IsNullOrEmpty(smtpJson))
         {
-            try { smtp = JsonSerializer.Deserialize<SmtpSettings>(smtpJson)!; }
+            try { smtp = JsonSerializer.Deserialize<EmailSettings>(smtpJson)!; }
             catch { }
         }
         if (smtp == null || string.IsNullOrWhiteSpace(smtp.Host))
         {
-            smtp = _configuration.GetSection("SmtpDefault").Get<SmtpSettings>() ?? new SmtpSettings();
+            // Use Production default if not set in session
+            smtp = _emailPresets.ProductionDefault;
         }
 
         var grouped = recipients.GroupBy(r => r.DebtorCode).OrderBy(g => g.Key).ToList();
@@ -152,15 +157,12 @@ public class PreviewModel : PageModel
         };
 
         var jobId = _queueService.EnqueueJob(job);
-
-        // Store job ID in session for progress polling
         HttpContext.Session.SetString("CurrentJobId", JsonSerializer.Serialize(jobId));
 
-        _logger.LogInformation("Job {JobId} created and enqueued with {Count} emails", jobId, job.TotalEmails);
+        _logger.LogInformation("Job {JobId} enqueued. Starting monitoring.", jobId);
 
-        // Return immediately - job will be processed in background
-        // Stay on preview page and let JavaScript poll for progress
-        return RedirectToPage("/Preview");
+        // Redirect to results page to monitor progress
+        return RedirectToPage("/SendResults");
     }
 
     public IActionResult OnPostCancel()

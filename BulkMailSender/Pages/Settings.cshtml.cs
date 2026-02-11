@@ -12,20 +12,23 @@ public class SettingsModel : PageModel
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<SettingsModel> _logger;
-    private readonly SettingsStorageService _settingsStorage;
+    private readonly ISettingsManager _settingsManager;
+    private readonly IEmailService _emailService;
 
     public SettingsModel(
         IConfiguration configuration, 
         ILogger<SettingsModel> logger,
-        SettingsStorageService settingsStorage)
+        ISettingsManager settingsManager,
+        IEmailService emailService)
     {
         _configuration = configuration;
         _logger = logger;
-        _settingsStorage = settingsStorage;
+        _settingsManager = settingsManager;
+        _emailService = emailService;
     }
 
     [BindProperty]
-    public SmtpSettings CurrentSettings { get; set; } = new();
+    public EmailSettings CurrentSettings { get; set; } = new();
 
     public string? TestResult { get; set; }
     public bool TestSuccess { get; set; }
@@ -33,60 +36,36 @@ public class SettingsModel : PageModel
 
     public async Task OnGetAsync()
     {
-        // Try to load from persistent storage first
-        var savedSettings = await _settingsStorage.LoadSettingsAsync();
-        if (savedSettings != null)
-        {
-            CurrentSettings = savedSettings;
-            HasSavedSettings = true;
-            
-            // IMPORTANT: Also save to session so other pages can use it
-            HttpContext.Session.SetString("SmtpSettings", JsonSerializer.Serialize(savedSettings));
-            
-            _logger.LogInformation("Loaded settings from persistent storage and updated session");
-        }
-        else
-        {
-            // Fall back to session
-            var settingsJson = HttpContext.Session.GetString("SmtpSettings");
-            if (!string.IsNullOrEmpty(settingsJson))
-            {
-                try
-                {
-                    CurrentSettings = JsonSerializer.Deserialize<SmtpSettings>(settingsJson) ?? new SmtpSettings();
-                    _logger.LogInformation("Loaded settings from session");
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to load SMTP settings from session");
-                }
-            }
+        CurrentSettings = await _settingsManager.GetActiveSettingsAsync();
+        HasSavedSettings = await _settingsManager.HasSavedSettingsAsync();
 
-            // Load default from appsettings.json as last resort
-            LoadDefaultSettings();
+        HttpContext.Session.SetString("SmtpSettings", JsonSerializer.Serialize(CurrentSettings));
+        
+        if (HasSavedSettings)
+        {
+             _logger.LogInformation("Loaded settings from persistent storage and updated session");
         }
     }
 
     public async Task<IActionResult> OnPostUseDefaultAsync()
     {
         ModelState.Clear();
-        LoadDefaultSettings();
+        CurrentSettings = _settingsManager.GetPreset("ProductionDefault");
         await SaveToStorageAndSessionAsync();
         TestResult = "? Default settings loaded and saved. Ready to use!";
         TestSuccess = true;
-        HasSavedSettings = _settingsStorage.HasSavedSettings();
+        HasSavedSettings = await _settingsManager.HasSavedSettingsAsync();
         return Page();
     }
 
     public async Task<IActionResult> OnPostUsePaperCutAsync()
     {
         ModelState.Clear();
-        LoadPaperCutSettings();
+        CurrentSettings = _settingsManager.GetPreset("Debug");
         await SaveToStorageAndSessionAsync();
         TestResult = "? PaperCut settings loaded and saved. Make sure PaperCut SMTP is running on localhost:25.";
         TestSuccess = true;
-        HasSavedSettings = _settingsStorage.HasSavedSettings();
+        HasSavedSettings = await _settingsManager.HasSavedSettingsAsync();
         return Page();
     }
 
@@ -95,7 +74,7 @@ public class SettingsModel : PageModel
         await SaveToStorageAndSessionAsync();
         TestResult = "? Settings saved successfully! They will persist across restarts.";
         TestSuccess = true;
-        HasSavedSettings = _settingsStorage.HasSavedSettings();
+        HasSavedSettings = await _settingsManager.HasSavedSettingsAsync();
         return Page();
     }
 
@@ -103,30 +82,11 @@ public class SettingsModel : PageModel
     {
         try
         {
-            using var client = new SmtpClient(CurrentSettings.Host, CurrentSettings.Port)
-            {
-                Credentials = string.IsNullOrWhiteSpace(CurrentSettings.Username)
-                    ? null
-                    : new NetworkCredential(CurrentSettings.Username, CurrentSettings.Password),
-                EnableSsl = CurrentSettings.EnableSsl,
-                Timeout = CurrentSettings.TimeoutSeconds * 1000
-            };
-
-            var testMessage = new MailMessage
-            {
-                From = new MailAddress(CurrentSettings.FromEmail, CurrentSettings.FromName),
-                Subject = "ATP Bulk Mailer - Test Connection",
-                Body = "This is a test email from ATP Bulk Mail Sender.\n\nIf you receive this, your SMTP settings are correct.",
-                IsBodyHtml = false
-            };
-            testMessage.To.Add(new MailAddress(CurrentSettings.FromEmail));
-
-            await client.SendMailAsync(testMessage);
+            await _emailService.TestConnectionAsync(CurrentSettings);
 
             TestResult = $"? SUCCESS! Test email sent to {CurrentSettings.FromEmail}. Check your inbox.";
             TestSuccess = true;
             await SaveToStorageAndSessionAsync();
-            _logger.LogInformation("SMTP test successful: {Host}:{Port}", CurrentSettings.Host, CurrentSettings.Port);
         }
         catch (Exception ex)
         {
@@ -135,46 +95,27 @@ public class SettingsModel : PageModel
             _logger.LogError(ex, "SMTP test failed");
         }
 
-        HasSavedSettings = _settingsStorage.HasSavedSettings();
+        HasSavedSettings = await _settingsManager.HasSavedSettingsAsync();
         return Page();
     }
 
     public async Task<IActionResult> OnPostClearSettingsAsync()
     {
-        await _settingsStorage.DeleteSettingsAsync();
+        await _settingsManager.ClearSettingsAsync();
         HttpContext.Session.Remove("SmtpSettings");
-        CurrentSettings = new SmtpSettings();
-        TestResult = "?? Saved settings cleared. Using defaults from appsettings.json.";
+        
+        // Reload default (active)
+        CurrentSettings = await _settingsManager.GetActiveSettingsAsync();
+        
+        TestResult = "?? Saved settings cleared. Reverted to defaults.";
         TestSuccess = false;
         HasSavedSettings = false;
-        LoadDefaultSettings();
         return Page();
-    }
-
-    private void LoadDefaultSettings()
-    {
-        var settings = _configuration.GetSection("SmtpDefault").Get<SmtpSettings>();
-        if (settings != null)
-        {
-            CurrentSettings = settings;
-        }
-    }
-
-    private void LoadPaperCutSettings()
-    {
-        var settings = _configuration.GetSection("SmtpPaperCut").Get<SmtpSettings>();
-        if (settings != null)
-        {
-            CurrentSettings = settings;
-        }
     }
 
     private async Task SaveToStorageAndSessionAsync()
     {
-        // Save to persistent storage
-        await _settingsStorage.SaveSettingsAsync(CurrentSettings);
-        
-        // Also save to session for immediate use
+        await _settingsManager.SaveSettingsAsync(CurrentSettings);
         HttpContext.Session.SetString("SmtpSettings", JsonSerializer.Serialize(CurrentSettings));
     }
 }

@@ -1,5 +1,6 @@
 using BulkMailSender.Services;
 using BulkMailSender.Middleware;
+using BulkMailSender.Models;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 namespace BulkMailSender
@@ -9,6 +10,9 @@ namespace BulkMailSender
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+
+            // Configure EmailPresets from appsettings.json
+            builder.Services.Configure<EmailPresets>(builder.Configuration.GetSection("EmailPresets"));
 
             // Configure Kestrel for large file uploads
             builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
@@ -55,6 +59,8 @@ namespace BulkMailSender
             // Register custom services
             builder.Services.AddScoped<IZipExtractionService, ZipExtractionService>();
             builder.Services.AddSingleton<SettingsStorageService>();
+            builder.Services.AddSingleton<ISettingsManager, SettingsManager>();
+            builder.Services.AddTransient<IEmailService, EmailService>();
             
             // Register background job services
             builder.Services.AddSingleton<EmailSendQueueService>();

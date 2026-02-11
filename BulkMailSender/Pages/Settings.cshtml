@@ -1,358 +1,441 @@
 @page
 @model BulkMailSender.Pages.SettingsModel
 @{
-    ViewData["Title"] = "SMTP Settings";
+    ViewData["Title"] = "System Configuration";
 }
 
-<div class="row">
-    <div class="col-md-10 offset-md-1">
-        <h2 class="mb-4"><i class="bi bi-gear"></i> Email Configuration</h2>
+<style>
+    /* Game UI Theme Overrides - High Contrast Dark Edition */
+    .game-ui-container {
+        background-color: #121212; /* Deep Black Background */
+        color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        min-height: 600px;
+        border: 1px solid #333;
+        overflow: hidden;
+    }
 
-        @if (Model.HasSavedSettings)
-        {
-            <div class="alert alert-success">
-                <i class="bi bi-check-circle"></i> <strong>Settings Loaded from Persistent Storage</strong>
-                <p class="mb-0 mt-2 small">Your settings are saved and will persist across application restarts.</p>
-            </div>
-        }
+    /* Sidebar Navigation */
+    .game-sidebar {
+        background-color: #050505; /* Almost Pitch Black */
+        border-right: 1px solid #333;
+        padding: 20px 0;
+    }
 
-        @if (!string.IsNullOrEmpty(Model.TestResult))
-        {
-            <div class="alert @(Model.TestSuccess ? "alert-success" : "alert-danger")">
-                @Model.TestResult
-            </div>
-        }
+    .game-nav-item {
+        padding: 15px 25px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border-left: 4px solid transparent;
+        color: #999; /* Medium Grey */
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+    }
 
-        <form method="post">
-            <!-- Load Presets -->
-            <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="bi bi-lightning"></i> Load Preset Configuration</h5>
-                </div>
-                <div class="card-body">
-                    <p class="text-muted mb-4">
-                        <i class="bi bi-info-circle"></i> Choose a preset configuration to quickly set up SMTP settings. 
-                        The selected preset will be <strong>automatically saved</strong>. You can then customize individual 
-                        settings below if needed, and click "Save Settings" to persist your changes.
-                    </p>
+    .game-nav-item:hover {
+        background-color: #1f1f1f;
+        color: #fff;
+    }
+
+    .game-nav-item.active {
+        background-color: #252525;
+        color: #ffffff;
+        border-left-color: #f8f9fa; /* White accent */
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        background: linear-gradient(90deg, #252525, #050505);
+    }
+
+    .game-nav-item i {
+        margin-right: 12px;
+        font-size: 1.1rem;
+    }
+
+    /* Content Area */
+    .game-content {
+        background-color: #121212;
+        padding: 30px 40px;
+    }
+
+    .game-header {
+        border-bottom: 1px solid #333;
+        padding-bottom: 15px;
+        margin-bottom: 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .game-header h2 {
+        color: #fff;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        font-weight: 800;
+        font-size: 1.6rem;
+        margin: 0;
+    }
+
+    /* Form Elements */
+    .game-input-group {
+        margin-bottom: 25px;
+        position: relative;
+    }
+
+    .game-label {
+        display: block;
+        color: #e0e0e0; /* Bright Grey Label */
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+    }
+
+    .game-input {
+        background-color: #1e1e1e; /* Distinct dark grey inputs */
+        border: 1px solid #444;
+        color: #fff;
+        padding: 14px 18px;
+        width: 100%;
+        border-radius: 4px;
+        transition: border-color 0.3s, box-shadow 0.3s;
+        font-family: Consolas, 'Courier New', monospace; /* Tech/Terminal Font */
+    }
+
+    .game-input:focus {
+        border-color: #fff;
+        background-color: #262626;
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+        outline: none;
+    }
+
+    .game-helper {
+        color: #aaa;
+        font-size: 0.8rem;
+        margin-top: 6px;
+    }
+
+    /* Switches / Checks */
+    .game-switch-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #1e1e1e;
+        padding: 15px;
+        border-radius: 4px;
+        border: 1px solid #444;
+    }
+
+    /* Action Bar */
+    .game-actions {
+        position: sticky;
+        bottom: 0;
+        background-color: #0a0a0a;
+        padding: 20px 40px;
+        border-top: 1px solid #333;
+        display: flex;
+        justify-content: flex-end;
+        gap: 15px;
+        z-index: 10;
+        margin: 0 -12px -12px -12px;
+    }
+
+    .game-btn {
+        padding: 10px 30px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 700;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        border-radius: 2px;
+    }
+
+    .game-btn-primary {
+        background: #ffffff;
+        color: #000;
+        box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+    }
+
+    .game-btn-primary:hover {
+        transform: translateY(-2px);
+        background: #e0e0e0;
+        box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+    }
+    
+    .game-btn-secondary {
+        background: transparent;
+        border: 1px solid #666;
+        color: #aaa;
+    }
+
+    .game-btn-secondary:hover {
+        border-color: #fff;
+        color: #fff;
+        background: rgba(255,255,255,0.05);
+    }
+
+    .game-btn-danger {
+        background: transparent;
+        border: 1px solid #ff4444;
+        color: #ff4444;
+    }
+    
+    .game-btn-danger:hover {
+        background: rgba(255, 68, 68, 0.1);
+        box-shadow: 0 0 15px rgba(255, 68, 68, 0.2);
+    }
+
+    /* Presets Cards */
+    .preset-card {
+        background: #1e1e1e;
+        border: 1px solid #444;
+        padding: 20px;
+        border-radius: 4px;
+        height: 100%;
+        transition: all 0.3s;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .preset-card:hover {
+        border-color: #fff;
+        transform: translateY(-5px);
+        background-color: #252525;
+    }
+
+    .preset-card.active-preset {
+        border-color: #fff;
+        background: #252525;
+    }
+
+    .preset-icon {
+        font-size: 2rem;
+        margin-bottom: 15px;
+        color: #fff;
+    }
+
+    /* Layout Utilities */
+    .tab-content {
+        animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @@keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+
+
+
+<div class="container-fluid py-4">
+    
+    <!-- Status Messages overlaid or top -->
+    @if (Model.HasSavedSettings)
+    {
+        <div class="alert alert-success alert-dismissible fade show bg-success text-white border-0 shadow-lg mb-4" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i> settings_saved_successfully
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(Model.TestResult))
+    {
+        <div class="alert @(Model.TestSuccess ? "alert-success bg-success" : "alert-danger bg-danger") text-white border-0 shadow-lg mb-4 alert-dismissible fade show" role="alert">
+            <i class="bi @(Model.TestSuccess ? "bi-check-circle-fill" : "bi-exclamation-triangle-fill") me-2"></i> @Model.TestResult
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <form method="post" id="settingsForm">
+        <div class="game-ui-container row g-0">
+            <!-- Sidebar -->
+            <div class="col-md-3 game-sidebar d-flex flex-column justify-content-between">
+                <div>
+                    <div class="px-4 py-3 mb-4 text-center border-bottom border-secondary">
+                        <i class="bi bi-sliders2 fs-1 text-secondary"></i>
+                        <div class="mt-2 fw-bold text-uppercase small text-muted">CONFIG PANEL v1.0</div>
+                    </div>
                     
-                    <div class="row g-3">
-                        <!-- Production/Default Preset -->
-                        <div class="col-md-6">
-                            <div class="card h-100 border border-success">
-                                <div class="card-body">
-                                    <h6 class="card-title text-success">
-                                        <i class="bi bi-cloud-check"></i> Load Default (Production)
-                                    </h6>
-                                    <p class="card-text small text-muted">
-                                        Load production SMTP settings for sending real emails via Brevo.
-                                    </p>
-                                    <div class="mt-3">
-                                        <strong class="small">Configured:</strong>
-                                        <ul class="small mt-2 mb-3">
-                                            <li>Host: smtp-relay.brevo.com</li>
-                                            <li>Port: 587</li>
-                                            <li>SSL: Enabled</li>
-                                            <li>Authentication: Yes</li>
-                                        </ul>
-                                    </div>
-                                    <div class="alert alert-info mb-0 py-2">
-                                        <small><i class="bi bi-info-circle"></i> Automatically saves when loaded</small>
+                    <div class="nav flex-column nav-pills" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+                        <button class="game-nav-item nav-link active" id="v-pills-general-tab" data-bs-toggle="pill" data-bs-target="#v-pills-general" type="button" role="tab" aria-selected="true">
+                            <i class="bi bi-person-badge"></i> EXOP General
+                        </button>
+                        <button class="game-nav-item nav-link" id="v-pills-connection-tab" data-bs-toggle="pill" data-bs-target="#v-pills-connection" type="button" role="tab" aria-selected="false">
+                            <i class="bi bi-hdd-network"></i> Network
+                        </button>
+                        <button class="game-nav-item nav-link" id="v-pills-advanced-tab" data-bs-toggle="pill" data-bs-target="#v-pills-advanced" type="button" role="tab" aria-selected="false">
+                            <i class="bi bi-sliders"></i> Advanced
+                        </button>
+                        <button class="game-nav-item nav-link" id="v-pills-presets-tab" data-bs-toggle="pill" data-bs-target="#v-pills-presets" type="button" role="tab" aria-selected="false">
+                            <i class="bi bi-stars"></i> Presets
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="p-4 text-muted small text-center opacity-50">
+                    <i class="bi bi-shield-lock-fill"></i> SECURE // ENCRYPTED
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-9 d-flex flex-column">
+                <div class="game-content flex-grow-1">
+                    <div class="tab-content" id="v-pills-tabContent">
+                        
+                        <!-- TAB: GENERAL -->
+                        <div class="tab-pane fade show active" id="v-pills-general" role="tabpanel">
+                            <div class="game-header">
+                                <h2>Identity Configuration</h2>
+                                <span class="badge bg-secondary">Required</span>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="game-input-group">
+                                        <label class="game-label">From Email Address</label>
+                                        <input type="email" class="game-input" asp-for="CurrentSettings.FromEmail" placeholder="ops@domain.com" />
+                                        <div class="game-helper">The origin address shown to recipients.</div>
                                     </div>
                                 </div>
-                                <div class="card-footer bg-light">
-                                    <button type="submit" asp-page-handler="UseDefault" class="btn btn-success w-100">
-                                        <i class="bi bi-gear-fill"></i> Load & Save Default
+                                <div class="col-md-12">
+                                    <div class="game-input-group">
+                                        <label class="game-label">Display Name</label>
+                                        <input type="text" class="game-input" asp-for="CurrentSettings.FromName" placeholder="System Administrator" />
+                                        <div class="game-helper">The friendly name displayed in mail clients.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAB: CONNECTION -->
+                        <div class="tab-pane fade" id="v-pills-connection" role="tabpanel">
+                            <div class="game-header">
+                                <h2>Server Connection</h2>
+                                <span class="badge bg-info text-dark">SMTP</span>
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-md-8">
+                                    <div class="game-input-group">
+                                        <label class="game-label">Host Address</label>
+                                        <input type="text" class="game-input" asp-for="CurrentSettings.Host" placeholder="smtp.provider.net" />
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="game-input-group">
+                                        <label class="game-label">Port</label>
+                                        <input type="number" class="game-input" asp-for="CurrentSettings.Port" placeholder="587" />
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="game-input-group">
+                                        <label class="game-label">Username</label>
+                                        <input type="text" class="game-input" asp-for="CurrentSettings.Username" autocomplete="off" />
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="game-input-group">
+                                        <label class="game-label">Password / Key</label>
+                                        <input type="password" class="game-input" asp-for="CurrentSettings.Password" autocomplete="off" value="@Model.CurrentSettings.Password" />
+                                    </div>
+                                </div>
+
+                                <div class="col-12 mt-3">
+                                    <div class="game-switch-container">
+                                        <div>
+                                            <div class="fw-bold text-white mb-1">Enable SSL/TLS Encryption</div>
+                                            <div class="small text-muted">Secure connection layer for data protection</div>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" asp-for="CurrentSettings.EnableSsl" style="transform: scale(1.5);">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAB: ADVANCED -->
+                        <div class="tab-pane fade" id="v-pills-advanced" role="tabpanel">
+                            <div class="game-header">
+                                <h2>Advanced Parameters</h2>
+                                <span class="badge bg-warning text-dark">Optional</span>
+                            </div>
+
+                            <div class="game-input-group">
+                                <label class="game-label">Global CC (Surveillance)</label>
+                                <textarea class="game-input" asp-for="CurrentSettings.GlobalCc" rows="2" placeholder="audit@corp.com; boss@corp.com"></textarea>
+                                <div class="game-helper">Semicolon-separated list. Copies all traffic to these addresses.</div>
+                            </div>
+
+                            <div class="game-input-group w-50">
+                                <label class="game-label">Connection Timeout (Seconds)</label>
+                                <input type="number" class="game-input" asp-for="CurrentSettings.TimeoutSeconds" />
+                            </div>
+                            
+                            @if (Model.HasSavedSettings)
+                            {
+                                <div class="mt-5 pt-4 border-top border-secondary">
+                                    <h5 class="text-danger text-uppercase mb-3">Danger Zone</h5>
+                                    <button type="submit" asp-page-handler="ClearSettings" class="game-btn game-btn-danger"
+                                            onclick="return confirm('WARNING: This will purge all configuration data. Continue?');">
+                                        <i class="bi bi-trash me-2"></i> Factory Reset
                                     </button>
                                 </div>
-                            </div>
+                            }
                         </div>
 
-                        <!-- PaperCut Testing Preset -->
-                        <div class="col-md-6">
-                            <div class="card h-100 border border-warning">
-                                <div class="card-body">
-                                    <h6 class="card-title text-warning">
-                                        <i class="bi bi-bug"></i> Use PaperCut (Testing)
-                                    </h6>
-                                    <p class="card-text small text-muted">
-                                        Load local SMTP settings for testing. Emails are captured locally, not sent to real recipients.
-                                    </p>
-                                    <div class="mt-3">
-                                        <strong class="small">Configured:</strong>
-                                        <ul class="small mt-2 mb-3">
-                                            <li>Host: localhost</li>
-                                            <li>Port: 25</li>
-                                            <li>SSL: Disabled</li>
-                                            <li>No Authentication</li>
-                                        </ul>
-                                    </div>
-                                    <div class="alert alert-info mb-0 py-2">
-                                        <small><i class="bi bi-info-circle"></i> Automatically saves when loaded</small>
+                        <!-- TAB: PRESETS -->
+                        <div class="tab-pane fade" id="v-pills-presets" role="tabpanel">
+                            <div class="game-header">
+                                <h2>Quick Load Profiles</h2>
+                            </div>
+
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <div class="preset-card">
+                                        <div class="preset-icon"><i class="bi bi-cloud-lightning-fill"></i></div>
+                                        <h4 class="text-white text-uppercase">Production</h4>
+                                        <p class="text-muted small">Brevo Relay Configuration<br>Port 587 | SSL On</p>
+                                        <button type="submit" asp-page-handler="UseDefault" class="game-btn game-btn-primary w-100 mt-3">
+                                            Load Profile
+                                        </button>
                                     </div>
                                 </div>
-                                <div class="card-footer bg-light">
-                                    <button type="submit" asp-page-handler="UsePaperCut" class="btn btn-warning w-100">
-                                        <i class="bi bi-bug"></i> Load & Save PaperCut
-                                    </button>
+                                <div class="col-md-6">
+                                    <div class="preset-card" style="border-color: #ffaa00;">
+                                        <div class="preset-icon" style="color: #ffaa00;"><i class="bi bi-cpu-fill"></i></div>
+                                        <h4 class="text-white text-uppercase">Debug Mode</h4>
+                                        <p class="text-muted small">PaperCut Localhost<br>Port 25 | SSL Off</p>
+                                        <button type="submit" asp-page-handler="UsePaperCut" class="game-btn game-btn-secondary w-100 mt-3" style="border-color: #ffaa00; color: #ffaa00;">
+                                            Load Profile
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+
                     </div>
                 </div>
-            </div>
 
-            <!-- Action Buttons -->
-            <div class="card mb-4">
-                <div class="card-header bg-secondary text-white">
-                    <h5 class="mb-0"><i class="bi bi-tools"></i> Actions</h5>
-                </div>
-                <div class="card-body">
-                    <div class="d-flex gap-2 flex-wrap">
-                        <button type="submit" asp-page-handler="TestConnection" class="btn btn-info">
-                            <i class="bi bi-send-check"></i> Test Connection
-                        </button>
-                        <button type="submit" asp-page-handler="Save" class="btn btn-success">
-                            <i class="bi bi-save"></i> Save Settings
-                        </button>
-                        @if (Model.HasSavedSettings)
-                        {
-                            <button type="submit" asp-page-handler="ClearSettings" class="btn btn-outline-danger" 
-                                    onclick="return confirm('Are you sure you want to clear saved settings?');">
-                                <i class="bi bi-trash"></i> Clear Saved Settings
-                            </button>
-                        }
-                    </div>
-                </div>
-            </div>
-
-            <!-- SMTP Server Configuration -->
-            <div class="card mb-4">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0"><i class="bi bi-envelope-at"></i> SMTP Server Configuration</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-8">
-                            <label class="form-label fw-bold">SMTP Host</label>
-                            <input class="form-control" asp-for="CurrentSettings.Host" placeholder="smtp.example.com" />
-                            <div class="form-text">Your SMTP server hostname or IP address</div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">Port</label>
-                            <input type="number" class="form-control" asp-for="CurrentSettings.Port" placeholder="587" />
-                            <div class="form-text">Common: 25, 587, 465</div>
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Username</label>
-                            <input class="form-control" asp-for="CurrentSettings.Username" placeholder="smtp-username" autocomplete="username" />
-                            <div class="form-text">Leave blank if no authentication required</div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Password / SMTP Key</label>
-                            <input type="password" class="form-control" asp-for="CurrentSettings.Password" placeholder="••••••••" autocomplete="current-password" />
-                            <div class="form-text">SMTP password or API key</div>
-                        </div>
-
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">Timeout (seconds)</label>
-                            <input type="number" class="form-control" asp-for="CurrentSettings.TimeoutSeconds" placeholder="30" />
-                            <div class="form-text">Connection timeout</div>
-                        </div>
-                        
-                        <div class="col-md-4">
-                            <div class="form-check mt-4 pt-2">
-                                <input class="form-check-input" type="checkbox" asp-for="CurrentSettings.EnableSsl" />
-                                <label class="form-check-label fw-bold">
-                                    Enable SSL/TLS
-                                </label>
-                                <div class="form-text">Required for port 587/465</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Sender Information -->
-            <div class="card mb-4">
-                <div class="card-header bg-secondary text-white">
-                    <h5 class="mb-0"><i class="bi bi-person-badge"></i> Sender Information</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-8">
-                            <label class="form-label fw-bold">From Email Address</label>
-                            <input type="email" class="form-control" asp-for="CurrentSettings.FromEmail" placeholder="noreply@example.com" />
-                            <div class="form-text">Must be verified with your SMTP provider</div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">From Name</label>
-                            <input class="form-control" asp-for="CurrentSettings.FromName" placeholder="ATP Bulk Mailer" />
-                            <div class="form-text">Display name for emails</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Global CC Recipients -->
-            <div class="card mb-4 border-warning">
-                <div class="card-header bg-warning">
-                    <h5 class="mb-0"><i class="bi bi-people-fill"></i> Global CC Recipients</h5>
-                </div>
-                <div class="card-body">
-                    <div class="alert alert-info mb-3">
-                        <i class="bi bi-info-circle"></i> <strong>What are Global CC Recipients?</strong>
-                        <p class="mb-0 mt-2">These email addresses will be automatically CC'd on <strong>every email</strong> sent by the system, regardless of the recipients list.</p>
-                    </div>
-                    
-                    <label class="form-label fw-bold">
-                        <i class="bi bi-envelope-plus"></i> CC Email Addresses
-                    </label>
-                    <input class="form-control form-control-lg" asp-for="CurrentSettings.GlobalCc" 
-                           placeholder="email1@example.com; email2@example.com; email3@example.com" />
-                    <div class="form-text mt-2">
-                        <i class="bi bi-arrow-right"></i> Separate multiple email addresses with semicolons (<code>;</code>)
-                        <br /><i class="bi bi-arrow-right"></i> Example: <code>manager@company.com; admin@company.com</code>
-                        <br /><i class="bi bi-arrow-right"></i> Leave blank to disable global CC
-                    </div>
-                    
-                    @if (!string.IsNullOrWhiteSpace(Model.CurrentSettings.GlobalCc))
-                    {
-                        <div class="mt-3 p-3 bg-light rounded">
-                            <small class="text-muted fw-bold">Currently configured:</small>
-                            <div class="mt-2">
-                                @foreach (var email in Model.CurrentSettings.GlobalCc.Split(';', StringSplitOptions.RemoveEmptyEntries).Select(e => e.Trim()))
-                                {
-                                    <span class="badge bg-warning text-dark me-2 mb-2">
-                                        <i class="bi bi-envelope"></i> @email
-                                    </span>
-                                }
-                            </div>
-                        </div>
-                    }
-                </div>
-            </div>
-        </form>
-
-        <!-- Setup Guide -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-book"></i> Setup Guide</h5>
-            </div>
-            <div class="card-body">
-                <div class="accordion" id="setupAccordion">
-                    
-                    <!-- Production SMTP -->
-                    <div class="accordion-item">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#prodSmtp">
-                                <i class="bi bi-cloud"></i> <strong class="ms-2">Production SMTP Setup</strong>
-                            </button>
-                        </h2>
-                        <div id="prodSmtp" class="accordion-collapse collapse" data-bs-parent="#setupAccordion">
-                            <div class="accordion-body">
-                                <h6>Common SMTP Providers:</h6>
-                                
-                                <div class="mb-3">
-                                    <strong>Option 1: Brevo (Recommended - 300 emails/day FREE)</strong>
-                                    <ol class="mb-0">
-                                        <li>Go to <a href="https://app.brevo.com" target="_blank">app.brevo.com</a></li>
-                                        <li>Navigate to Settings ? SMTP & API</li>
-                                        <li>Generate a new SMTP key</li>
-                                        <li>Use settings:
-                                            <ul>
-                                                <li>Host: <code>smtp-relay.brevo.com</code></li>
-                                                <li>Port: <code>587</code></li>
-                                                <li>Username: Your Brevo login email</li>
-                                                <li>Password: The SMTP key you generated</li>
-                                                <li>SSL: <strong>Enabled</strong></li>
-                                            </ul>
-                                        </li>
-                                    </ol>
-                                </div>
-
-                                <div class="mb-3">
-                                    <strong>Option 2: SendGrid</strong>
-                                    <ul class="mb-0">
-                                        <li>Host: <code>smtp.sendgrid.net</code></li>
-                                        <li>Port: <code>587</code> or <code>465</code></li>
-                                        <li>Username: <code>apikey</code></li>
-                                        <li>Password: Your SendGrid API key</li>
-                                        <li>SSL: <strong>Enabled</strong></li>
-                                    </ul>
-                                </div>
-
-                                <div>
-                                    <strong>Option 3: Mailgun</strong>
-                                    <ul class="mb-0">
-                                        <li>Host: <code>smtp.mailgun.org</code></li>
-                                        <li>Port: <code>587</code></li>
-                                        <li>Username: Your Mailgun SMTP username</li>
-                                        <li>Password: Your Mailgun SMTP password</li>
-                                        <li>SSL: <strong>Enabled</strong></li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- PaperCut Testing -->
-                    <div class="accordion-item">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#papercut">
-                                <i class="bi bi-bug"></i> <strong class="ms-2">PaperCut SMTP (Local Testing)</strong>
-                            </button>
-                        </h2>
-                        <div id="papercut" class="accordion-collapse collapse" data-bs-parent="#setupAccordion">
-                            <div class="accordion-body">
-                                <p><strong>PaperCut SMTP</strong> is a local email viewer for testing. Emails are captured locally and not sent to real recipients.</p>
-                                <ol>
-                                    <li>Download <a href="https://github.com/ChangemakerStudios/Papercut-SMTP/releases" target="_blank">PaperCut SMTP</a></li>
-                                    <li>Run PaperCut.exe</li>
-                                    <li>Ensure port is set to 25 (default)</li>
-                                    <li>Click "Use PaperCut (Testing)" button above</li>
-                                    <li>Send test emails - they'll appear in PaperCut window</li>
-                                </ol>
-                                <div class="alert alert-warning mb-0">
-                                    <i class="bi bi-exclamation-triangle"></i> <strong>Testing Only:</strong> Emails are NOT sent to real recipients when using PaperCut.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Security & Storage -->
-                    <div class="accordion-item">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#security">
-                                <i class="bi bi-shield-lock"></i> <strong class="ms-2">Security & Storage Information</strong>
-                            </button>
-                        </h2>
-                        <div id="security" class="accordion-collapse collapse" data-bs-parent="#setupAccordion">
-                            <div class="accordion-body">
-                                <h6>How Settings are Stored:</h6>
-                                <ul>
-                                    <li><strong>File Storage:</strong> <code>App_Data/smtp-settings.json</code></li>
-                                    <li><strong>Session Storage:</strong> In-memory cache (30 minutes)</li>
-                                    <li><strong>Persistence:</strong> Settings survive application restarts</li>
-                                </ul>
-
-                                <h6 class="mt-3">Security Notes:</h6>
-                                <div class="alert alert-warning">
-                                    <ul class="mb-0">
-                                        <li><i class="bi bi-shield-check"></i> Settings file is excluded from Git (<code>.gitignore</code>)</li>
-                                        <li><i class="bi bi-shield-check"></i> Not accessible via HTTP</li>
-                                        <li><i class="bi bi-exclamation-triangle"></i> Do NOT commit <code>App_Data/</code> to source control</li>
-                                        <li><i class="bi bi-info-circle"></i> For production: Consider Azure Key Vault or environment variables</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
+                <!-- Footer Actions -->
+                <div class="game-actions">
+                    <button type="submit" asp-page-handler="TestConnection" class="game-btn game-btn-secondary">
+                        <i class="bi bi-wifi me-2"></i> Test Link
+                    </button>
+                    <button type="submit" asp-page-handler="Save" class="game-btn game-btn-primary">
+                        <i class="bi bi-save2-fill me-2"></i> Apply Changes
+                    </button>
                 </div>
             </div>
         </div>
-
-    </div>
+    </form>
 </div>
+

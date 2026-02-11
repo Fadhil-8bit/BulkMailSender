@@ -1,6 +1,6 @@
 namespace BulkMailSender.Models;
 
-public class SmtpSettings
+public class EmailSettings
 {
     public string Host { get; set; } = string.Empty;
     public int Port { get; set; }

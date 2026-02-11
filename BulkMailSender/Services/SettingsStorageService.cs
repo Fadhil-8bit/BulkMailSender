@@ -24,7 +24,7 @@ public class SettingsStorageService
     /// <summary>
     /// Save SMTP settings to JSON file
     /// </summary>
-    public async Task<bool> SaveSettingsAsync(SmtpSettings settings)
+    public async Task<bool> SaveSettingsAsync(EmailSettings settings)
     {
         await _fileLock.WaitAsync();
         try
@@ -52,7 +52,7 @@ public class SettingsStorageService
     /// <summary>
     /// Load SMTP settings from JSON file
     /// </summary>
-    public async Task<SmtpSettings?> LoadSettingsAsync()
+    public async Task<EmailSettings?> LoadSettingsAsync()
     {
         await _fileLock.WaitAsync();
         try
@@ -64,7 +64,7 @@ public class SettingsStorageService
             }
 
             var json = await File.ReadAllTextAsync(_settingsFilePath);
-            var settings = JsonSerializer.Deserialize<SmtpSettings>(json);
+            var settings = JsonSerializer.Deserialize<EmailSettings>(json);
             
             if (settings != null)
             {

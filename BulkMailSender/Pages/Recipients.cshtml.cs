@@ -55,7 +55,7 @@ public class RecipientsModel : PageModel
         {
             try
             {
-                var smtpSettings = JsonSerializer.Deserialize<SmtpSettings>(smtpJson);
+                var smtpSettings = JsonSerializer.Deserialize<EmailSettings>(smtpJson);
                 GlobalCc = smtpSettings?.GlobalCc;
             }
             catch (Exception ex)

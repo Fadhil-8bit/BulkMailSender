@@ -9,15 +9,18 @@ public class SettingsManager : ISettingsManager
     private readonly SettingsStorageService _storageService;
     private readonly EmailPresets _presets;
     private readonly ILogger<SettingsManager> _logger;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
     public SettingsManager(
         SettingsStorageService storageService,
         IOptions<EmailPresets> presets,
-        ILogger<SettingsManager> logger)
+        ILogger<SettingsManager> logger,
+        IHttpContextAccessor httpContextAccessor)
     {
         _storageService = storageService;
         _presets = presets.Value;
         _logger = logger;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<EmailSettings> GetActiveSettingsAsync()
@@ -39,13 +42,22 @@ public class SettingsManager : ISettingsManager
     public async Task SaveSettingsAsync(EmailSettings settings)
     {
         await _storageService.SaveSettingsAsync(settings);
-        _logger.LogInformation("Settings saved to persistent storage.");
+        await UpdateSessionAsync(settings);
+        _logger.LogInformation("Settings saved to persistent storage and session updated.");
     }
 
     public async Task ClearSettingsAsync()
     {
         await _storageService.DeleteSettingsAsync();
-        _logger.LogInformation("Settings cleared from persistent storage.");
+        
+        // Remove from session
+        var session = _httpContextAccessor.HttpContext?.Session;
+        if (session != null)
+        {
+            session.Remove("SmtpSettings");
+        }
+
+        _logger.LogInformation("Settings cleared from persistent storage and session.");
     }
 
     public EmailSettings GetPreset(string presetName)
@@ -77,5 +89,15 @@ public class SettingsManager : ISettingsManager
     public Task<bool> HasSavedSettingsAsync()
     {
         return Task.FromResult(_storageService.HasSavedSettings());
+    }
+
+    public Task UpdateSessionAsync(EmailSettings settings)
+    {
+        var session = _httpContextAccessor.HttpContext?.Session;
+        if (session != null)
+        {
+            session.SetString("SmtpSettings", JsonSerializer.Serialize(settings));
+        }
+        return Task.CompletedTask;
     }
 }

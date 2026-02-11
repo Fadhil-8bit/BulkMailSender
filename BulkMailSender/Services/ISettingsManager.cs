@@ -29,4 +29,9 @@ public interface ISettingsManager
     /// Checks if there are currently saved settings in persistent storage.
     /// </summary>
     Task<bool> HasSavedSettingsAsync();
+
+    /// <summary>
+    /// Updates the current session with the provided settings.
+    /// </summary>
+    Task UpdateSessionAsync(EmailSettings settings);
 }

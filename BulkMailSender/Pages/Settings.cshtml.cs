@@ -39,7 +39,7 @@ public class SettingsModel : PageModel
         CurrentSettings = await _settingsManager.GetActiveSettingsAsync();
         HasSavedSettings = await _settingsManager.HasSavedSettingsAsync();
 
-        HttpContext.Session.SetString("SmtpSettings", JsonSerializer.Serialize(CurrentSettings));
+        await _settingsManager.UpdateSessionAsync(CurrentSettings);
         
         if (HasSavedSettings)
         {
@@ -51,8 +51,7 @@ public class SettingsModel : PageModel
     {
         ModelState.Clear();
         CurrentSettings = _settingsManager.GetPreset("ProductionDefault");
-        await SaveToStorageAndSessionAsync();
-        TestResult = "? Default settings loaded and saved. Ready to use!";
+        TestResult = "Production settings loaded. Please review and click 'Apply Changes' to save.";
         TestSuccess = true;
         HasSavedSettings = await _settingsManager.HasSavedSettingsAsync();
         return Page();
@@ -62,8 +61,7 @@ public class SettingsModel : PageModel
     {
         ModelState.Clear();
         CurrentSettings = _settingsManager.GetPreset("Debug");
-        await SaveToStorageAndSessionAsync();
-        TestResult = "? PaperCut settings loaded and saved. Make sure PaperCut SMTP is running on localhost:25.";
+        TestResult = "Debug/Local settings loaded. Please review and click 'Apply Changes' to save.";
         TestSuccess = true;
         HasSavedSettings = await _settingsManager.HasSavedSettingsAsync();
         return Page();
@@ -72,7 +70,7 @@ public class SettingsModel : PageModel
     public async Task<IActionResult> OnPostSaveAsync()
     {
         await SaveToStorageAndSessionAsync();
-        TestResult = "? Settings saved successfully! They will persist across restarts.";
+        TestResult = " Settings saved successfully! They will persist across restarts.";
         TestSuccess = true;
         HasSavedSettings = await _settingsManager.HasSavedSettingsAsync();
         return Page();
@@ -84,13 +82,13 @@ public class SettingsModel : PageModel
         {
             await _emailService.TestConnectionAsync(CurrentSettings);
 
-            TestResult = $"? SUCCESS! Test email sent to {CurrentSettings.FromEmail}. Check your inbox.";
+            TestResult = $" SUCCESS! Test email sent to {CurrentSettings.FromEmail}. Check your inbox.";
             TestSuccess = true;
             await SaveToStorageAndSessionAsync();
         }
         catch (Exception ex)
         {
-            TestResult = $"? FAILED: {ex.Message}";
+            TestResult = $" FAILED: {ex.Message}";
             TestSuccess = false;
             _logger.LogError(ex, "SMTP test failed");
         }
@@ -102,12 +100,14 @@ public class SettingsModel : PageModel
     public async Task<IActionResult> OnPostClearSettingsAsync()
     {
         await _settingsManager.ClearSettingsAsync();
-        HttpContext.Session.Remove("SmtpSettings");
         
         // Reload default (active)
         CurrentSettings = await _settingsManager.GetActiveSettingsAsync();
         
-        TestResult = "?? Saved settings cleared. Reverted to defaults.";
+        // Ensure session is updated with defaults
+        await _settingsManager.UpdateSessionAsync(CurrentSettings);
+        
+        TestResult = "Saved settings cleared. Reverted to defaults.";
         TestSuccess = false;
         HasSavedSettings = false;
         return Page();
@@ -116,6 +116,5 @@ public class SettingsModel : PageModel
     private async Task SaveToStorageAndSessionAsync()
     {
         await _settingsManager.SaveSettingsAsync(CurrentSettings);
-        HttpContext.Session.SetString("SmtpSettings", JsonSerializer.Serialize(CurrentSettings));
     }
 }

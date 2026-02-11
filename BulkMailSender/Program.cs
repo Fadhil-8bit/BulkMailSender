@@ -57,6 +57,7 @@ namespace BulkMailSender
             builder.Services.AddRazorPages();
             
             // Register custom services
+            builder.Services.AddHttpContextAccessor();
             builder.Services.AddScoped<IZipExtractionService, ZipExtractionService>();
             builder.Services.AddSingleton<SettingsStorageService>();
             builder.Services.AddSingleton<ISettingsManager, SettingsManager>();

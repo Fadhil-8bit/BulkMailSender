@@ -45,7 +45,12 @@ public class TemplateModel : PageModel
     [BindProperty]
     public string EditBody { get; set; } = string.Empty;
 
+    [BindProperty]
+    public Models.TemplateType SelectedEditType { get; set; }
+
     public Dictionary<string, string> RawTemplates { get; set; } = new();
+
+    public bool ShowEditModal { get; set; }
 
     public async Task OnGetAsync()
     {
@@ -194,7 +199,7 @@ public class TemplateModel : PageModel
         return Page();
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostProceedAsync()
     {
         HasUploadData = !string.IsNullOrEmpty(HttpContext.Session.GetString("ExtractionPath"));
         
@@ -298,19 +303,13 @@ public class TemplateModel : PageModel
 
     public async Task<IActionResult> OnPostSaveMasterTemplateAsync()
     {
-        if (!TemplateType.HasValue)
-        {
-             TempData["ErrorMessage"] = "Please select an Email Type first.";
-             return RedirectToPage();
-        }
-
         if (string.IsNullOrWhiteSpace(EditSubject) || string.IsNullOrWhiteSpace(EditBody))
         {
             TempData["ErrorMessage"] = "Subject and Body cannot be empty.";
             return RedirectToPage();
         }
 
-        await _templateService.SaveCustomTemplateAsync(TemplateType.Value, EditSubject, EditBody);
+        await _templateService.SaveCustomTemplateAsync(SelectedEditType, EditSubject, EditBody);
         TempData["SuccessMessage"] = "Master template saved successfully.";
         return RedirectToPage();
     }
@@ -320,6 +319,35 @@ public class TemplateModel : PageModel
         await _templateService.ResetUserTemplateAsync();
         TempData["SuccessMessage"] = "Templates reset to system defaults.";
         return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostFetchTemplateAsync(TemplateType? type)
+    {
+        // Re-load helper data needed for the page
+        HasUploadData = !string.IsNullOrEmpty(HttpContext.Session.GetString("ExtractionPath"));
+        LoadAvailableDebtorCodes();
+        
+        // Populate RawTemplates
+        var soaTemplate = await _templateService.GetTemplateAsync(Models.TemplateType.SoaInv);
+        var overdueTemplate = await _templateService.GetTemplateAsync(Models.TemplateType.Overdue);
+        RawTemplates["SoaInv_Subject"] = soaTemplate.Subject;
+        RawTemplates["SoaInv_Body"] = soaTemplate.Body;
+        RawTemplates["Overdue_Subject"] = overdueTemplate.Subject;
+        RawTemplates["Overdue_Body"] = overdueTemplate.Body;
+
+        if (!TemplateType.HasValue)
+        {
+             TempData["ErrorMessage"] = "Please select an Email Type first.";
+             return Page();
+        }
+
+        SelectedEditType = TemplateType.Value;
+        var templateContent = await _templateService.GetTemplateAsync(TemplateType.Value);
+        EditSubject = templateContent.Subject;
+        EditBody = templateContent.Body;
+        ShowEditModal = true;
+
+        return Page();
     }
 
     private void LoadAvailableDebtorCodes()

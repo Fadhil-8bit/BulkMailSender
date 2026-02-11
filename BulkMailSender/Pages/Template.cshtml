@@ -65,7 +65,7 @@
                                 <option value="Overdue">Overdue</option>
                             </select>
                             <span class="invalid-feedback d-block">@Html.ValidationMessage(nameof(Model.TemplateType))</span>
-                            <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="btnEditMaster" style="display: none;">
+                            <button type="submit" asp-page-handler="FetchTemplate" class="btn btn-outline-primary btn-sm mt-2" id="btnEditMaster" style="display: none;">
                                 <i class="bi bi-pencil-square"></i> Edit Master Template
                             </button>
                         </div>
@@ -107,7 +107,7 @@
                              <button type="submit" asp-page-handler="Save" class="btn btn-outline-secondary">
                                  <i class="bi bi-save"></i> Save Draft
                             </button>
-                            <button type="submit" class="btn btn-primary btn-lg fw-bold shadow">
+                            <button type="submit" asp-page-handler="Proceed" class="btn btn-primary btn-lg fw-bold shadow">
                                 Proceed to Review <i class="bi bi-arrow-right-circle ms-2"></i>
                             </button>
                         </div>
@@ -227,7 +227,7 @@ Direct Line: 018-7864855</pre>
                         <code>{debtor_code}</code>, <code>{organization_name}</code>, <code>{notes}</code>, <code>{period}</code> (SOA only)
                     </div>
                     
-                    <input type="hidden" name="TemplateType" id="modalTemplateType" />
+                    <input type="hidden" asp-for="SelectedEditType" id="modalTemplateType" />
 
                     <div class="mb-3">
                         <label asp-for="EditSubject" class="form-label fw-bold">Subject Line</label>
@@ -265,31 +265,16 @@ Direct Line: 018-7864855</pre>
             
             // Raw templates from server
             var rawTemplates = @Html.Raw(JsonSerializer.Serialize(Model.RawTemplates));
+            var showEditModal = @JsonSerializer.Serialize(Model.ShowEditModal).ToLower();
+            var hasEditSubject = @JsonSerializer.Serialize(!string.IsNullOrEmpty(Model.EditSubject)).ToLower();
 
             // Customize Modal Elements
             var customizeModal = new bootstrap.Modal(document.getElementById('customizeModal'));
             var modalTemplateType = document.getElementById("modalTemplateType");
-            var modalSubject = document.getElementById("modalSubject");
-            var modalBody = document.getElementById("modalBody");
-
-            if (btnEditMaster) {
-                btnEditMaster.addEventListener('click', function() {
-                    var type = typeSelect ? typeSelect.value : "";
-                    if (!type) {
-                        alert("Please select an Email Type first.");
-                        return;
-                    }
-                    
-                    // Populate modal
-                    modalTemplateType.value = type;
-                    var subjectKey = type + "_Subject";
-                    var bodyKey = type + "_Body";
-                    
-                    modalSubject.value = rawTemplates[subjectKey] || "";
-                    modalBody.value = rawTemplates[bodyKey] || "";
-                    
-                    customizeModal.show();
-                });
+            
+            // Automatically show modal if triggered from server
+            if (showEditModal || hasEditSubject) {
+                customizeModal.show();
             }
 
             function updateUI() {

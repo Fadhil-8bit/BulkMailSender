@@ -13,10 +13,15 @@
 </style>
 
 <div class="row">
-    <div class="col-md-10 offset-md-1">
-        <h2 class="mb-4">
+<div class="col-md-10 offset-md-1">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
             <i class="bi bi-people"></i> Upload Recipients List
         </h2>
+        <a asp-page="/Index" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
 
         @* Global CC Notice *@
         @if (!string.IsNullOrWhiteSpace(Model.GlobalCc))
@@ -38,6 +43,29 @@
             </div>
         }
 
+        <div class="accordion mb-4" id="csvHelpAccordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingHelp">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseHelp" aria-expanded="false" aria-controls="collapseHelp">
+                        <i class="bi bi-question-circle me-2"></i> How to format the CSV file?
+                    </button>
+                </h2>
+                <div id="collapseHelp" class="accordion-collapse collapse" aria-labelledby="headingHelp" data-bs-parent="#csvHelpAccordion">
+                    <div class="accordion-body">
+                        <p>The application expects a Google Contacts style CSV export. Key columns required:</p>
+                        <ul>
+                            <li><strong>First Name</strong>: Must contain the Debtor Code (Format: <code>XXX-XXX</code>)</li>
+                            <li><strong>Organization Name</strong>: Company Name</li>
+                            <li><strong>Notes</strong>: Optional notes</li>
+                            <li><strong>E-mail X - Value</strong>: The email address</li>
+                            <li><strong>E-mail X - Type</strong>: Defines the role (e.g., <code>Work</code> = TO, <code>View</code> = CC, <code>Private</code> = BCC)</li>
+                        </ul>
+                        <p class="text-muted small"><em>Tip: Ensure headers match exactly as exported from Google Contacts.</em></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <form method="post" enctype="multipart/form-data">
             <div class="mb-3">
                 <label for="recipientsFile" class="form-label fw-bold">Select Recipients CSV</label>
@@ -52,73 +80,178 @@
             </div>
         </form>
 
-        @if (Model.ParseSummary != null)
+        @{
+            bool showSummary = Model.ParseSummary != null || (Model.Recipients != null && Model.Recipients.Any());
+            int totalDebtors = 0;
+            int invalidCount = 0;
+            int validDebtors = 0;
+            int totalEmails = Model.Recipients?.Count ?? 0;
+
+            if (Model.ParseSummary != null)
+            {
+                totalDebtors = Model.ParseSummary.TotalDebtorCodes;
+                invalidCount = Model.ParseSummary.InvalidRecipients;
+                validDebtors = totalDebtors - invalidCount;
+            }
+            else if (showSummary)
+            {
+                validDebtors = Model.Recipients.Select(r => r.DebtorCode).Distinct().Count();
+                invalidCount = (Model.InvalidDebtorCodes?.Count ?? 0);
+                totalDebtors = validDebtors + invalidCount;
+            }
+        }
+
+        @if (showSummary)
         {
             <div class="card mt-4">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">Parsing Summary</h5>
+                    <h5 class="mb-0">@(Model.ParseSummary != null ? "Parsing Summary" : "Current Data Loaded")</h5>
                 </div>
                 <div class="card-body">
                     <div class="row text-center">
                         <div class="col-md-3">
-                            <h3 class="text-primary">@Model.ParseSummary.TotalDebtorCodes</h3>
+                            <h3 class="text-primary">@totalDebtors</h3>
                             <p class="text-muted">Total Debtor Codes</p>
                         </div>
                         <div class="col-md-3">
-                            <h3 class="text-success">@(Model.ParseSummary.TotalDebtorCodes - Model.ParseSummary.InvalidRecipients)</h3>
+                            <h3 class="text-success">@validDebtors</h3>
                             <p class="text-muted">Valid Recipient</p>
                         </div>
                         <div class="col-md-3">
-                            <h3 class="text-danger">@Model.ParseSummary.InvalidRecipients</h3>
+                            <h3 class="text-danger">@invalidCount</h3>
                             <p class="text-muted">Invalid Recipient</p>
                         </div>
                         <div class="col-md-3">
-                            <h3 class="text-info">@Model.Recipients.Count</h3>
+                            <h3 class="text-info">@totalEmails</h3>
                             <p class="text-muted">Total Emails</p>
                         </div>
+                    </div>
+                     <div class="d-flex justify-content-center gap-3 mt-3 border-top pt-3">
+                        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#reviewModal">
+                            <i class="bi bi-list-check"></i> View Recipient List
+                        </button>
+                            <a asp-page="/Upload" class="btn btn-success px-4 shadow-sm">
+                            Next: Upload Attachments <i class="bi bi-arrow-right"></i>
+                        </a>
                     </div>
                 </div>
             </div>
         }
 
-        @if (Model.Recipients.Any())
+        @if (Model.InvalidDebtorCodes.Any() || Model.Errors.Any())
         {
-            var grouped = Model.Recipients
-                .GroupBy(r => r.DebtorCode)
-                .OrderBy(g => g.Key)
-                .ToList();
-
-            <div class="card mt-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Recipients (Grouped by Debtor Code)</h5>
-                    <small class="text-muted">@grouped.Count groups</small>
+            <div class="alert alert-danger mt-4 d-flex align-items-center justify-content-between">
+                <div>
+                     <h5 class="alert-heading mb-1"><i class="bi bi-exclamation-octagon"></i> Issues Found During Parsing</h5>
+                    <p class="mb-0">Found @(Model.InvalidDebtorCodes.Count + Model.Errors.Count) issues. Please review the details.</p>
                 </div>
-                <div class="card-body p-0">
-                    <div class="recipients-scroll-box">
-                        <div class="accordion" id="recipientsAccordion">
+                 <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#reviewModal">
+                    <i class="bi bi-search"></i> Review Issues
+                </button>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modal for Reviewing Recipients -->
+<div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reviewModalLabel"><i class="bi bi-list-check"></i> Review Recipient List</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0 bg-light">
+                @if (Model.InvalidDebtorCodes.Any() || Model.Errors.Any())
+                {
+                    <div class="alert alert-danger m-3 border-danger">
+                        <h6 class="mb-2"><i class="bi bi-exclamation-octagon"></i> Issues Found During Parsing</h6>
+                        
+                        @if (Model.ParseErrors.Any())
+                        {
+                            <div class="accordion accordion-flush bg-white border rounded mb-3" id="errorAccordionModal">
+                                @{
+                                    var errorsByDebtorCode = Model.ParseErrors
+                                        .GroupBy(e => e.DebtorCode ?? "[No Debtor Code]")
+                                        .OrderBy(g => g.Key)
+                                        .ToList();
+                                    int errIdx = 0;
+                                }
+                                @foreach (var debtorGroup in errorsByDebtorCode)
+                                {
+                                    var accId = $"errorGroupModal{errIdx}";
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header" id="errorHeadingModal@(errIdx)">
+                                            <button class="accordion-button collapsed bg-danger bg-opacity-10 text-danger" type="button" data-bs-toggle="collapse" data-bs-target="#@accId" aria-expanded="false" aria-controls="@accId">
+                                                <strong>Debtor Code: @debtorGroup.Key</strong>
+                                                <span class="ms-2 badge bg-danger">@debtorGroup.Count() issue(s)</span>
+                                            </button>
+                                        </h2>
+                                        <div id="@accId" class="accordion-collapse collapse" aria-labelledby="errorHeadingModal@(errIdx)" data-bs-parent="#errorAccordionModal">
+                                            <div class="accordion-body p-0">
+                                                <div class="list-group list-group-flush">
+                                                    @foreach (var error in debtorGroup)
+                                                    {
+                                                        <div class="list-group-item bg-transparent">
+                                                            <div class="badge bg-danger mb-1">Row @error.RowNumber</div>
+                                                            <div class="small">@error.ErrorMessage</div>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    errIdx++;
+                                }
+                            </div>
+                        }
+                        
+                        @if (Model.InvalidDebtorCodes.Any())
+                        {
+                            <h6 class="text-danger small fw-bold">Invalid Debtor Codes (@Model.InvalidDebtorCodes.Count)</h6>
+                             <div class="list-group list-group-flush border rounded bg-white">
+                                <div class="list-group-item bg-danger bg-opacity-10 text-danger small">
+                                    Format Issue: Debtor codes must contain exactly one hyphen with uppercase alphanumeric groups (e.g., 3000-AT502).
+                                </div>
+                                <div class="list-group-item" style="max-height: 200px; overflow-y: auto;">
+                                    @foreach (var code in Model.InvalidDebtorCodes)
+                                    {
+                                        <span class="badge bg-secondary me-1 mb-1">@code</span>
+                                    }
+                                </div>
+                             </div>
+                        }
+                    </div>
+                }
+
+                @if (Model.Recipients.Any())
+                {
+                    var grouped = Model.Recipients
+                        .GroupBy(r => r.DebtorCode)
+                        .OrderBy(g => g.Key)
+                        .ToList();
+                        
+                    <div class="recipients-scroll-box border-0 rounded-0" style="max-height: none;">
+                        <div class="accordion" id="recipientsAccordionModal">
                             @for (int i = 0; i < grouped.Count; i++)
                             {
                                 var g = grouped[i];
                                 var first = g.First();
-                                var accId = $"debtorGroup{i}";
+                                var accId = $"debtorGroupModal{i}";
                                 <div class="accordion-item">
-                                    <h2 class="accordion-header" id="headingRec@(i)">
-                                        <button class="accordion-button @(i==0?"":"collapsed")" type="button" data-bs-toggle="collapse" data-bs-target="#@accId" aria-expanded="@(i==0?"true":"false")" aria-controls="@accId">
+                                    <h2 class="accordion-header" id="headingRecModal@(i)">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#@accId" aria-expanded="false" aria-controls="@accId">
                                             <strong>@g.Key</strong>
                                             <span class="ms-3 badge bg-primary">@g.Count() email(s)</span>
                                             @if (!string.IsNullOrWhiteSpace(first.OrganizationName))
                                             {
                                                 <span class="ms-2 text-muted">@first.OrganizationName</span>
                                             }
-                                            @if (!string.IsNullOrWhiteSpace(first.Notes))
-                                            {
-                                                <span class="ms-2 badge bg-info">@first.Notes</span>
-                                            }
                                         </button>
                                     </h2>
-                                    <div id="@accId" class="accordion-collapse collapse @(i==0?"show":"")" aria-labelledby="headingRec@(i)" data-bs-parent="#recipientsAccordion">
+                                    <div id="@accId" class="accordion-collapse collapse" aria-labelledby="headingRecModal@(i)" data-bs-parent="#recipientsAccordionModal">
                                         <div class="accordion-body">
-                                            <table class="table table-sm align-middle">
+                                            <table class="table table-sm align-middle mb-0">
                                                 <thead>
                                                     <tr>
                                                         <th style="width:40%">Email</th>
@@ -149,148 +282,71 @@
                             }
                         </div>
                     </div>
-                </div>
-                <div class="card-footer text-end">
-                    <a asp-page="/Upload" class="btn btn-success"><i class="bi bi-arrow-right-circle"></i> Next: Upload Attachments</a>
-                </div>
+                }
+                else
+                {
+                    <div class="text-center py-5">
+                         <p class="text-muted">No recipients loaded yet.</p>
+                    </div>
+                }
             </div>
-        }
-
-        @if ((Model.InvalidDebtorCodes.Any() || Model.Errors.Any()) && Model.ParseSummary != null)
-        {
-            <div class="card mt-4 border-danger">
-                <div class="card-header bg-danger text-white">
-                    <h5 class="mb-0"><i class="bi bi-exclamation-octagon"></i> Issues Found During Parsing (@(Model.InvalidDebtorCodes.Count + Model.Errors.Count) total)</h5>
-                </div>
-                <div class="card-body">
-                    @{
-                        // Group parse errors by debtor code
-                        var errorsByDebtorCode = Model.ParseErrors
-                            .GroupBy(e => e.DebtorCode ?? "[No Debtor Code]")
-                            .OrderBy(g => g.Key)
-                            .ToList();
-                    }
-
-                    @if (errorsByDebtorCode.Any())
-                    {
-                        <div class="mb-0">
-                            <h6 class="text-danger mb-3">
-                                <i class="bi bi-exclamation-triangle"></i> Data Issues by Debtor Code (@Model.ParseErrors.Count)
-                            </h6>
-                            <div class="accordion" id="errorAccordion">
-                                @{
-                                    int errorAccordionIndex = 0;
-                                }
-                                @foreach (var debtorGroup in errorsByDebtorCode)
-                                {
-                                    var accId = $"errorGroup{errorAccordionIndex}";
-                                    var debtorCodeDisplay = debtorGroup.Key;
-                                    var debtorCodeErrors = debtorGroup.ToList();
-
-                                    <div class="accordion-item">
-                                        <h2 class="accordion-header" id="errorHeading@(errorAccordionIndex)">
-                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#@accId" aria-expanded="false" aria-controls="@accId">
-                                                <strong>Debtor Code: <code>@debtorCodeDisplay</code></strong>
-                                                <span class="ms-2 badge bg-danger">@debtorCodeErrors.Count issue(s)</span>
-                                                @{
-                                                    var errorTypeSummary = string.Join(", ", debtorCodeErrors
-                                                        .GroupBy(e => e.ErrorType)
-                                                        .Select(g => $"{g.Key}(@g.Count())"));
-                                                }
-                                                <span class="ms-2 small text-muted">(@Html.Raw(errorTypeSummary))</span>
-                                            </button>
-                                        </h2>
-                                        <div id="@accId" class="accordion-collapse collapse" aria-labelledby="errorHeading@(errorAccordionIndex)" data-bs-parent="#errorAccordion">
-                                            <div class="accordion-body p-0">
-                                                <div class="list-group list-group-flush">
-                                                    @foreach (var error in debtorCodeErrors)
-                                                    {
-                                                        var errorColor = error.ErrorType switch
-                                                        {
-                                                            "DebtorCode" => "danger",
-                                                            "Email" => "warning",
-                                                            "Label" => "warning",
-                                                            "Format" => "warning",
-                                                            "Missing" => "danger",
-                                                            _ => "secondary"
-                                                        };
-
-                                                        <div class="list-group-item border-start border-@errorColor border-5">
-                                                            <div class="d-flex justify-content-between align-items-start">
-                                                                <div style="flex: 1;">
-                                                                    <div class="mb-2">
-                                                                        <span class="badge bg-@errorColor">@error.ErrorType</span>
-                                                                        <small class="text-muted ms-2">Row @error.RowNumber</small>
-                                                                    </div>
-                                                                    <p class="mb-0 small">@error.ErrorMessage</p>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    }
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    errorAccordionIndex++;
-                                }
-                            </div>
-                        </div>
-                    }
-                    else if (Model.InvalidDebtorCodes.Any())
-                    {
-                        <div class="mb-4">
-                            <h6 class="text-danger mb-3">
-                                <i class="bi bi-x-circle"></i> Invalid Debtor Code Styles (@Model.InvalidDebtorCodes.Count)
-                            </h6>
-                            <div class="list-group">
-                                @foreach (var code in Model.InvalidDebtorCodes.Take(50))
-                                {
-                                    <div class="list-group-item border-start border-danger border-5">
-                                        <div class="d-flex justify-content-between align-items-start">
-                                            <div>
-                                                <h6 class="mb-1">Debtor Code: <code class="bg-light p-1">@code</code></h6>
-                                                <p class="mb-0 text-muted small">
-                                                    <strong>Issue:</strong> Invalid format. Debtor codes must contain exactly one hyphen with uppercase alphanumeric groups on both sides (e.g., <code>3000-AT502</code>).
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                }
-                            </div>
-                            @if (Model.InvalidDebtorCodes.Count > 50)
-                            {
-                                <div class="alert alert-warning mt-2 mb-0">
-                                    <small>... and @(Model.InvalidDebtorCodes.Count - 50) more invalid debtor codes</small>
-                                </div>
-                            }
-                        </div>
-                    }
-                </div>
-            </div>
-        }
-
-        <!-- Accepted Formats moved to bottom -->
-        <div class="card shadow-sm mt-5">
-            <div class="card-body">
-                <h5 class="card-title">Accepted Formats</h5>
-                <ul>
-                    <li>CSV (Google Contacts export supported)</li>
-                    <li>Columns include:
-                        <ul>
-                            <li><strong>First Name</strong> (Debtor Code)</li>
-                            <li><strong>Organization Name</strong></li>
-                            <li><strong>Notes</strong></li>
-                            <li><strong>E-mail n - Value</strong> + <strong>E-mail n - Type/Label</strong> (n = 1..N)</li>
-                        </ul>
-                    </li>
-                </ul>
-                <div class="alert alert-info">
-                    <strong>Email Label values:</strong> Work ? TO, View ? CC, Private ? BCC (others normalized).
-                </div>
-                <div class="alert alert-light border mt-2">
-                    <i class="bi bi-arrow-right"></i> New flow: Upload recipients first, then upload attachments.
-                </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Modal for Successful Parse -->
+<div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="successModalLabel"><i class="bi bi-check-circle-fill"></i> Import Successful</h5>
+            </div>
+            <div class="modal-body text-center py-4">
+                <h2 class="display-6 text-success mb-3">@Model.ParseSummary?.TotalDebtorCodes Recipients Loaded!</h2>
+                <p class="lead">Your recipient list has been successfully processed.</p>
+                <p class="text-muted">You can now proceed to upload your file attachments.</p>
+
+                @if (Model.InvalidDebtorCodes.Any() || Model.Errors.Any())
+                {
+                    <div class="alert alert-warning d-inline-block mt-3 mb-0 text-start bg-warning bg-opacity-10 border-warning text-dark">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-exclamation-triangle-fill text-warning fs-4 me-3"></i>
+                            <div>
+                                <strong>Attention Needed:</strong> Found @(Model.InvalidDebtorCodes.Count + Model.Errors.Count) issues.
+                                <div class="small text-muted">Some recipients might be skipped or invalid.</div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="modal-footer justify-content-center">
+                @if (Model.InvalidDebtorCodes.Any() || Model.Errors.Any())
+                {
+                    <button type="button" class="btn btn-danger btn-lg px-4" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#reviewModal">
+                        <i class="bi bi-search"></i> Review Issues
+                    </button>
+                }
+                else
+                {
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#reviewModal">Review Data</button>
+                    <a asp-page="/Upload" class="btn btn-success btn-lg px-4"><i class="bi bi-arrow-right-circle"></i> Continue to Upload</a>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @if (Request.Method == "POST" && Model.Recipients != null && Model.Recipients.Any())
+    {
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                var myModal = new bootstrap.Modal(document.getElementById('successModal'));
+                myModal.show();
+            });
+        </script>
+    }
+}

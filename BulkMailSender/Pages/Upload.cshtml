@@ -37,10 +37,15 @@
 </div>
 
 <div class="row">
-    <div class="col-md-10 offset-md-1">
-        <h2 class="mb-4">
+<div class="col-md-10 offset-md-1">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
             <i class="bi bi-cloud-upload"></i> Upload Bulk Email Attachments
         </h2>
+        <a asp-page="/Recipients" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Back to Recipients
+        </a>
+    </div>
 
         @if (!Model.HasRecipients)
         {
@@ -48,6 +53,33 @@
                 <i class="bi bi-info-circle"></i> Please upload the recipients CSV first. Go to <a asp-page="/Recipients">Recipients</a>.
             </div>
         }
+
+        <div class="accordion mb-4" id="zipHelpAccordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingZipHelp">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseZipHelp" aria-expanded="false" aria-controls="collapseZipHelp">
+                        <i class="bi bi-question-circle me-2"></i> How to prepare the ZIP file?
+                    </button>
+                </h2>
+                <div id="collapseZipHelp" class="accordion-collapse collapse" aria-labelledby="headingZipHelp" data-bs-parent="#zipHelpAccordion">
+                    <div class="accordion-body">
+                        <p>Files inside the ZIP must follow this naming pattern for automatic categorization:</p>
+                        <div class="alert alert-info py-2">
+                             <strong>Format:</strong> <code>{DebtorCode} {DocumentType} {CustomCode}.extension</code>
+                        </div>
+                        <ul class="mb-3">
+                            <li><code>DEBT001 INV 12345.pdf</code> - Invoice with custom code</li>
+                            <li><code>DEBT001 SOA 98765.pdf</code> - Statement of Account</li>
+                            <li><code>DEBT001 OD 456789.pdf</code> - Overdue Notice</li>
+                            <li><code>ABC123 OTHER 7890.xlsx</code> - Other documents</li>
+                        </ul>
+                         <p class="text-muted small mb-0">
+                            <strong>Note:</strong> Maximum file size is 500 MB. Large files may take several minutes to process.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div class="@(Model.HasRecipients ? "" : "disabled-overlay disabled")">
             <form method="post" enctype="multipart/form-data" id="uploadForm">
@@ -110,193 +142,235 @@
                             <p class="text-muted">Debtors</p>
                         </div>
                     </div>
+                    
+                    @if (Model.UploadResult.DebtorAttachments.Any())
+                    {
+                        <div class="d-flex justify-content-center gap-3 mt-3 border-top pt-3">
+                            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#reviewModal">
+                                <i class="bi bi-list-check"></i> View Extraction Details
+                            </button>
+                             <a asp-page="/Template" class="btn btn-success px-4 shadow-sm">
+                                Next: Draft Email <i class="bi bi-arrow-right"></i>
+                            </a>
+                        </div>
+                    }
                 </div>
             </div>
 
-            @if (Model.UploadResult.DebtorAttachments.Any())
-            {
-                <div class="card mt-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Debtor Attachments Success (@Model.UploadResult.DebtorAttachments.Count)</h5>
-                        <small class="text-muted">Expand items to view file details</small>
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="debtor-scroll-box">
-                            <div class="accordion" id="debtorAccordion">
-                                @for (int i = 0; i < Model.UploadResult.DebtorAttachments.Count; i++)
-                                {
-                                    var debtor = Model.UploadResult.DebtorAttachments[i];
-                                    var accordionId = $"debtor{i}";
-
-                                    var isExpanded = i == 0 ? "true" : "false";
-                                    var buttonClass = i == 0 ? "" : "collapsed";
-
-                                    <div class="accordion-item">
-                                        <h2 class="accordion-header" id="heading@(i)">
-                                            <button class="accordion-button @buttonClass" type="button"
-                                                    data-bs-toggle="collapse" data-bs-target="#@accordionId"
-                                                    aria-expanded="@isExpanded" aria-controls="@accordionId">
-                                                <strong>@debtor.DebtorCode</strong>
-                                                <span class="ms-3 badge bg-secondary">@debtor.TotalFileCount files</span>
-                                                <span class="ms-2 badge bg-secondary">@debtor.TotalFileSizeFormatted</span>
-                                                <span class="ms-2">
-                                                    @if (debtor.InvoiceFiles.Any()) { <span class="badge bg-success me-1">INV: @debtor.InvoiceFiles.Count</span> }
-                                                    @if (debtor.StatementFiles.Any()) { <span class="badge bg-primary me-1">SOA: @debtor.StatementFiles.Count</span> }
-                                                    @if (debtor.OverdueFiles.Any()) { <span class="badge bg-warning-dark me-1">OD: @debtor.OverdueFiles.Count</span> }
-                                                    @if (debtor.OtherFiles.Any()) { <span class="badge bg-dark">OTHER: @debtor.OtherFiles.Count</span> }
-                                                </span>
-                                            </button>
-                                        </h2>
-                                        <div id="@accordionId" class="accordion-collapse collapse @(i == 0 ? "show" : "")" aria-labelledby="heading@(i)" data-bs-parent="#debtorAccordion">
-                                            <div class="accordion-body">
-                                                @if (debtor.InvoiceFiles.Any())
-                                                {
-                                                    <h6 class="text-success"><i class="bi bi-file-earmark-text"></i> Invoice Files (@debtor.InvoiceFiles.Count)</h6>
-                                                    <ul class="list-group mb-3">
-                                                        @foreach (var file in debtor.InvoiceFiles)
-                                                        {
-                                                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                                <span>
-                                                                    <i class="bi bi-file-pdf text-danger"></i> @file.FileName
-                                                                    <small class="text-muted">(Code: @file.CustomCode)</small>
-                                                                </span>
-                                                                <span class="badge bg-secondary">@file.FileSizeFormatted</span>
-                                                            </li>
-                                                        }
-                                                    </ul>
-                                                }
-
-                                                @if (debtor.StatementFiles.Any())
-                                                {
-                                                    <h6 class="text-primary"><i class="bi bi-file-earmark-spreadsheet"></i> Statement Files (@debtor.StatementFiles.Count)</h6>
-                                                    <ul class="list-group mb-3">
-                                                        @foreach (var file in debtor.StatementFiles)
-                                                        {
-                                                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                                <span>
-                                                                    <i class="bi bi-file-pdf text-danger"></i> @file.FileName
-                                                                    <small class="text-muted">(Code: @file.CustomCode)</small>
-                                                                </span>
-                                                                <span class="badge bg-secondary">@file.FileSizeFormatted</span>
-                                                            </li>
-                                                        }
-                                                    </ul>
-                                                }
-
-                                                @if (debtor.OverdueFiles.Any())
-                                                {
-                                                    <h6 style="color: #ff8c00;"><i class="bi bi-exclamation-triangle"></i> Overdue Files (@debtor.OverdueFiles.Count)</h6>
-                                                    <ul class="list-group mb-3">
-                                                        @foreach (var file in debtor.OverdueFiles)
-                                                        {
-                                                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                                <span>
-                                                                    <i class="bi bi-file-pdf text-danger"></i> @file.FileName
-                                                                    <small class="text-muted">(Code: @file.CustomCode)</small>
-                                                                </span>
-                                                                <span class="badge bg-secondary">@file.FileSizeFormatted</span>
-                                                            </li>
-                                                        }
-                                                    </ul>
-                                                }
-
-                                                @if (debtor.OtherFiles.Any())
-                                                {
-                                                    <h6 class="text-dark"><i class="bi bi-files"></i> Other Documents (@debtor.OtherFiles.Count)</h6>
-                                                    <ul class="list-group mb-3">
-                                                        @foreach (var file in debtor.OtherFiles)
-                                                        {
-                                                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                                <span>
-                                                                    <i class="bi bi-file-earmark"></i> @file.FileName
-                                                                    <small class="text-muted">(Code: @file.CustomCode)</small>
-                                                                </span>
-                                                                <span class="badge bg-secondary">@file.FileSizeFormatted</span>
-                                                            </li>
-                                                        }
-                                                    </ul>
-                                                }
-                                            </div>
-                                        </div>
-                                    </div>
-                                }
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="d-grid gap-2 mt-4">
-                    <a asp-page="/Template" class="btn btn-success btn-lg">
-                        <i class="bi bi-arrow-right-circle"></i> Next: Draft Email
-                    </a>
-                </div>
-            }
-
             @if (Model.UploadResult.Errors.Any())
             {
-                <div class="card mt-4 border-danger">
-                    <div class="card-header bg-danger text-white">
-                        <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Debtor Attachment Failed (@Model.UploadResult.Errors.Count)</h5>
+                <div class="alert alert-danger mt-4 d-flex align-items-center justify-content-between">
+                    <div>
+                        <h5 class="alert-heading mb-1"><i class="bi bi-exclamation-triangle-fill"></i> Uncategorized Files</h5>
+                        <p class="mb-0">Found @Model.UploadResult.Errors.Count files that could not be matched. Please review.</p>
                     </div>
-                    <div class="card-body">
-                        <ul class="list-unstyled mb-0">
-                            @foreach (var error in Model.UploadResult.Errors.Take(20))
-                            {
-                                <li class="text-danger mb-1">
-                                    <i class="bi bi-x-circle"></i> @error
-                                </li>
-                            }
-                            @if (Model.UploadResult.Errors.Count > 20)
-                            {
-                                <li class="text-muted">
-                                    ... and @(Model.UploadResult.Errors.Count - 20) more
-                                </li>
-                            }
-                        </ul>
-                    </div>
+                     <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#reviewModal">
+                        <i class="bi bi-search"></i> Review Issues
+                    </button>
                 </div>
             }
         }
 
-        <!-- Moved to bottom: File Naming Convention -->
-        <div class="card shadow-sm mb-4 mt-5">
-            <div class="card-body">
-                <h5 class="card-title">File Naming Convention</h5>
-                <p class="card-text">
-                    Files inside the ZIP must follow this naming pattern:
-                </p>
-                <div class="alert alert-info">
-                    <strong>Format:</strong> <code>{DebtorCode} {DocumentType} {CustomCode}.extension</code>
-                </div>
-                <ul>
-                    <li><code>DEBT001 INV 12345.pdf</code> - Invoice with custom code 12345</li>
-                    <li><code>DEBT001 SOA 98765.pdf</code> - Statement of Account</li>
-                    <li><code>DEBT001 OD 456789.pdf</code> - Overdue Notice</li>
-                    <li><code>ABC123 OTHER 7890.xlsx</code> - Other documents</li>
-                </ul>
-                <p class="text-muted small">
-                    <strong>Rules:</strong>
-                    <br>• Debtor Code: Any alphanumeric code
-                    <br>• Document Type: INV, SOA, OD, or OTHER
-                    <br>• Custom Code: 4 to 6 digit number
-                    <br>• Separated by single spaces
-                </p>
+<!-- Cards moved to accordion -->
+    </div>
+</div>
+
+<!-- Modal for Reviewing Extraction Details -->
+<div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reviewModalLabel"><i class="bi bi-list-check"></i> Review Extraction Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+             <div class="modal-body p-0 bg-light">
+                @if (Model.UploadResult?.Errors?.Any() == true)
+                {
+                     <div class="accordion accordion-flush border-bottom" id="errorAccordionModal">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingErrors">
+                                <button class="accordion-button bg-danger text-white" type="button" data-bs-toggle="collapse" data-bs-target="#collapseErrors" aria-expanded="true" aria-controls="collapseErrors">
+                                    <span><i class="bi bi-exclamation-triangle-fill me-2"></i> Failed / Uncategorized Files (@Model.UploadResult.Errors.Count)</span>
+                                </button>
+                            </h2>
+                            <div id="collapseErrors" class="accordion-collapse collapse show" aria-labelledby="headingErrors" data-bs-parent="#errorAccordionModal">
+                                <div class="accordion-body bg-danger bg-opacity-10">
+                                    <ul class="list-group list-group-flush">
+                                        @foreach (var error in Model.UploadResult.Errors)
+                                        {
+                                            <li class="list-group-item bg-transparent text-danger border-danger border-opacity-25 pb-0 pt-0 border-0">
+                                                <small><i class="bi bi-x-circle"></i> @error</small>
+                                            </li>
+                                        }
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @if (Model.UploadResult?.DebtorAttachments?.Any() == true)
+                {
+                    <div class="debtor-scroll-box border-0 rounded-0" style="max-height: none;">
+                        <div class="accordion" id="debtorAccordionModal">
+                             @for (int i = 0; i < Model.UploadResult.DebtorAttachments.Count; i++)
+                            {
+                                var debtor = Model.UploadResult.DebtorAttachments[i];
+                                var accordionId = $"debtorModal{i}";
+                                var isExpanded = i == 0 ? "true" : "false";    
+                                var buttonClass = i == 0 ? "" : "collapsed";
+
+                                <div class="accordion-item">
+                                     <h2 class="accordion-header" id="headingModal@(i)">
+                                        <button class="accordion-button @buttonClass" type="button"
+                                                data-bs-toggle="collapse" data-bs-target="#@accordionId"
+                                                aria-expanded="@isExpanded" aria-controls="@accordionId">
+                                            <strong>@debtor.DebtorCode</strong>
+                                            <span class="ms-3 badge bg-secondary">@debtor.TotalFileCount files</span>
+                                            <span class="ms-2 badge bg-secondary">@debtor.TotalFileSizeFormatted</span>
+                                            <span class="ms-2">
+                                                @if (debtor.InvoiceFiles.Any()) { <span class="badge bg-success me-1">INV: @debtor.InvoiceFiles.Count</span> }
+                                                @if (debtor.StatementFiles.Any()) { <span class="badge bg-primary me-1">SOA: @debtor.StatementFiles.Count</span> }
+                                                @if (debtor.OverdueFiles.Any()) { <span class="badge bg-warning-dark me-1">OD: @debtor.OverdueFiles.Count</span> }
+                                                @if (debtor.OtherFiles.Any()) { <span class="badge bg-dark">OTHER: @debtor.OtherFiles.Count</span> }
+                                            </span>
+                                        </button>
+                                    </h2>
+                                    <div id="@accordionId" class="accordion-collapse collapse" aria-labelledby="headingModal@(i)" data-bs-parent="#debtorAccordionModal">
+                                        <div class="accordion-body">
+                                             @if (debtor.InvoiceFiles.Any())
+                                            {
+                                                <h6 class="text-success"><i class="bi bi-file-earmark-text"></i> Invoice Files (@debtor.InvoiceFiles.Count)</h6>
+                                                <ul class="list-group mb-3">
+                                                    @foreach (var file in debtor.InvoiceFiles)
+                                                    {
+                                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                            <span><i class="bi bi-file-pdf text-danger"></i> @file.FileName <small class="text-muted">(Code: @file.CustomCode)</small></span>
+                                                            <span class="badge bg-secondary">@file.FileSizeFormatted</span>
+                                                        </li>
+                                                    }
+                                                </ul>
+                                            }
+                                            @if (debtor.StatementFiles.Any())
+                                            {
+                                                <h6 class="text-primary"><i class="bi bi-file-earmark-spreadsheet"></i> Statement Files (@debtor.StatementFiles.Count)</h6>
+                                                <ul class="list-group mb-3">
+                                                    @foreach (var file in debtor.StatementFiles)
+                                                    {
+                                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                            <span><i class="bi bi-file-pdf text-danger"></i> @file.FileName <small class="text-muted">(Code: @file.CustomCode)</small></span>
+                                                            <span class="badge bg-secondary">@file.FileSizeFormatted</span>
+                                                        </li>
+                                                    }
+                                                </ul>
+                                            }
+                                             @if (debtor.OverdueFiles.Any())
+                                            {
+                                                <h6 style="color: #ff8c00;"><i class="bi bi-exclamation-triangle"></i> Overdue Files (@debtor.OverdueFiles.Count)</h6>
+                                                <ul class="list-group mb-3">
+                                                    @foreach (var file in debtor.OverdueFiles)
+                                                    {
+                                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                            <span><i class="bi bi-file-pdf text-danger"></i> @file.FileName <small class="text-muted">(Code: @file.CustomCode)</small></span>
+                                                            <span class="badge bg-secondary">@file.FileSizeFormatted</span>
+                                                        </li>
+                                                    }
+                                                </ul>
+                                            }
+                                            @if (debtor.OtherFiles.Any())
+                                            {
+                                                <h6 class="text-dark"><i class="bi bi-files"></i> Other Documents (@debtor.OtherFiles.Count)</h6>
+                                                <ul class="list-group mb-3">
+                                                    @foreach (var file in debtor.OtherFiles)
+                                                    {
+                                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                            <span><i class="bi bi-file-earmark"></i> @file.FileName <small class="text-muted">(Code: @file.CustomCode)</small></span>
+                                                            <span class="badge bg-secondary">@file.FileSizeFormatted</span>
+                                                        </li>
+                                                    }
+                                                </ul>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-5">
+                         <p class="text-muted">No attachments loaded yet.</p>
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
+    </div>
+</div>
 
-        <!-- Moved to bottom: Upload Settings -->
-        <div class="card shadow mb-4">
-            <div class="card-body">
-                <h5 class="card-title mb-3">Upload Settings</h5>
-                <p class="mb-2"><i class="bi bi-info-circle text-primary"></i> <strong>Maximum file size:</strong> 500 MB</p>
-                <p class="mb-0"><i class="bi bi-check-circle text-success"></i> <strong>Supported format:</strong> ZIP files only</p>
-                <p class="mb-0 mt-2"><i class="bi bi-clock text-warning"></i> <strong>Large files may take 5-10 minutes to upload</strong></p>
+<!-- Modal for Successful Upload -->
+<div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="successModalLabel"><i class="bi bi-check-circle-fill"></i> Upload Successful</h5>
+            </div>
+            <div class="modal-body text-center py-4">
+                <h2 class="display-6 text-success mb-3">@Model.UploadResult?.DebtorAttachments.Count Debtors Matched!</h2>
+                <p class="lead">Your attachments have been extracted and categorized.</p>
+                <p class="text-muted">You can now proceed to draft your email template.</p>
+                
+                @if (Model.UploadResult?.UncategorizedFiles > 0 || Model.UploadResult?.Errors?.Any() == true)
+                {
+                    <div class="alert alert-warning d-inline-block mt-3 mb-0 text-start bg-warning bg-opacity-10 border-warning text-dark">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-exclamation-triangle-fill text-warning fs-4 me-3"></i> 
+                            <div>
+                                <strong>Attention Needed:</strong> 
+                                @if (Model.UploadResult?.UncategorizedFiles > 0)
+                                {
+                                    <span>@Model.UploadResult.UncategorizedFiles file(s) unmatched.</span>
+                                }
+                                else
+                                {
+                                    <span>Issues found during upload.</span>
+                                }
+                                <div class="small text-muted">Please review the extraction details.</div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="modal-footer justify-content-center">
+                @if (Model.UploadResult?.UncategorizedFiles > 0 || Model.UploadResult?.Errors?.Any() == true)
+                {
+                     <button type="button" class="btn btn-danger btn-lg px-4" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#reviewModal">
+                        <i class="bi bi-search"></i> Review Issues
+                    </button>
+                }
+                else
+                {
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#reviewModal">Review Attachments</button>
+                    <a asp-page="/Template" class="btn btn-success btn-lg px-4"><i class="bi bi-arrow-right-circle"></i> Continue to Draft</a>
+                }
             </div>
         </div>
     </div>
 </div>
 
 @section Scripts {
+    @if (Request.Method == "POST" && Model.UploadResult?.Success == true)
+    {
+         <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                var myModal = new bootstrap.Modal(document.getElementById('successModal'));
+                myModal.show();
+            });
+        </script>
+    }
     <script>
         const zipFileInput = document.getElementById('zipFile');
         const uploadForm = document.getElementById('uploadForm');

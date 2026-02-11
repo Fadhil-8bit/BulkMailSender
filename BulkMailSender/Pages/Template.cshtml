@@ -6,173 +6,165 @@
 }
 
 <style>
-    .template-preview { white-space: pre-wrap; border: 1px solid #dee2e6; border-radius: .5rem; padding: 1rem; background: #fff; }
-    .sticky-reminder { position: sticky; top: 0; z-index: 10; }
-    .placeholder-pill { display:inline-block; padding:.375rem .5rem; border:1px dashed #6c757d; border-radius:.25rem; color:#6c757d; background:#f8f9fa; }
+    .template-preview { white-space: pre-wrap; border: 1px solid #dee2e6; border-radius: .5rem; padding: 1rem; background: #fff; font-family: 'Courier New', Courier, monospace; font-size: 0.9rem; }
+    .sticky-reminder { position: sticky; top: 0; z-index: 1020; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
 </style>
 
 <div class="row">
-    <div class="col-md-10 offset-md-1">
-        <h2 class="mb-4"><i class="bi bi-envelope"></i> Configure Email Type</h2>
+<div class="col-md-12">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0"><i class="bi bi-envelope"></i> Configure Email Type</h2>
+        <a asp-page="/Upload" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Back to Upload
+        </a>
+    </div>
 
-        @if (!Model.HasUploadData)
-        {
-            <div class="alert alert-warning">
-                <i class="bi bi-exclamation-triangle"></i> No attachment upload found. Please <a asp-page="/Upload">upload attachments</a> and recipients first.
-            </div>
-        }
-
-        <div class="alert alert-info sticky-reminder">
-            <strong>Reminder:</strong> Set the period (e.g., OCT 2025). This is easy to forget.
+    @if (!Model.HasUploadData)
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i> No attachment upload found. Please <a asp-page="/Upload">upload attachments</a> and recipients first.
         </div>
+    }
 
-        @if (TempData["SuccessMessage"] != null)
-        {
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <i class="bi bi-check-circle"></i> @TempData["SuccessMessage"]
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        }
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle"></i> @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
 
-        @if (TempData["ErrorMessage"] != null)
-        {
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <i class="bi bi-exclamation-circle"></i> @TempData["ErrorMessage"]
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-circle"></i> @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
 
-        <form method="post">
-            <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Email Settings</h5>
-                    <small class="text-muted">SOA/INV or Overdue</small>
-                </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-6">
+    <form method="post">
+        <div class="row">
+            <!-- Left Column: Settings and Selection -->
+            <div class="col-md-5">
+                <!-- Main Configuration Card -->
+                <div class="card mb-4 shadow-sm">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Step 1: Settings</h5>
+                    </div>
+                    <div class="card-body">
+                         <div class="alert alert-warning sticky-reminder mb-3 border-warning small p-2">
+                             <small><i class="bi bi-bell"></i> <strong>Reminder:</strong> Verify <strong>Period</strong> matches attachments.</small>
+                         </div>
+
+                        <div class="mb-3">
                             <label class="form-label fw-bold">Email Type</label>
                             <select class="form-select @(ModelState.GetFieldValidationState(nameof(Model.TemplateType)) == Microsoft.AspNetCore.Mvc.ModelBinding.ModelValidationState.Invalid ? "is-invalid" : "")" asp-for="TemplateType">
-                                <option value="">-- Select Email --</option>
+                                <option value="">-- Select Email Type --</option>
                                 <option value="SoaInv">SOA &amp; Invoice</option>
                                 <option value="Overdue">Overdue</option>
                             </select>
                             <span class="invalid-feedback d-block">@Html.ValidationMessage(nameof(Model.TemplateType))</span>
                         </div>
-                        <div class="col-md-6">
+                        
+                        <div class="mb-3" id="periodContainer">
                             <label class="form-label fw-bold">Period (e.g., OCT 2025)</label>
-                            <input class="form-control @(ModelState.GetFieldValidationState(nameof(Model.Period)) == Microsoft.AspNetCore.Mvc.ModelBinding.ModelValidationState.Invalid ? "is-invalid" : "")" asp-for="Period"/>
-                            <div class="form-text">Make sure this matches the attachments period.</div>
+                            <input class="form-control @(ModelState.GetFieldValidationState(nameof(Model.Period)) == Microsoft.AspNetCore.Mvc.ModelBinding.ModelValidationState.Invalid ? "is-invalid" : "")" asp-for="Period" placeholder="Enter period here"/>
                             <span class="invalid-feedback d-block">@Html.ValidationMessage(nameof(Model.Period))</span>
                         </div>
                     </div>
                 </div>
-                <div class="card-footer d-flex justify-content-between align-items-center">
-                    <div>
-                        <small class="text-muted">
-                            <i class="bi bi-check2-circle"></i> 
-                            <strong>Checklist:</strong> Email Type selected &bull; Period filled
-                        </small>
-                    </div>
-                    <div class="d-flex gap-2">
-                        <button type="submit" formaction="?handler=Save" class="btn btn-success"><i class="bi bi-save"></i> Save Template</button>
-                        <button type="submit" class="btn btn-primary"><i class="bi bi-clipboard-check"></i> Go to Review</button>
-                    </div>
-                </div>
-            </div>
-        </form>
 
-        <div class="card mb-4 border-info">
-            <div class="card-header bg-light">
-                <h5 class="mb-0"><i class="bi bi-eye"></i> Preview Email (Optional)</h5>
-                <small class="text-muted">Test how the email will look with different settings</small>
-            </div>
-            <div class="card-body">
-                <form method="post" asp-page-handler="Preview">
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">Preview Email Type</label>
-                            <select class="form-select" name="PreviewTemplateType" id="previewTemplateType">
-                                <option value="">-- Select Email Type --</option>
-                                <option value="SoaInv" asp-selected="@(Model.PreviewTemplateType == TemplateType.SoaInv)">SOA &amp; Invoice</option>
-                                <option value="Overdue" asp-selected="@(Model.PreviewTemplateType == TemplateType.Overdue)">Overdue</option>
-                            </select>
-                            <div class="form-text">For preview only</div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">Preview Period</label>
-                            <input type="text" class="form-control" name="PreviewPeriod" id="previewPeriod" placeholder="e.g., OCT 2025" value="@Model.PreviewPeriod"/>
-                            <div class="form-text">For preview only</div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">Select Debtor Code</label>
-                            <select class="form-select" asp-for="DebtorCode" id="debtorCodeSelect">
-                                <option value="">-- Select a debtor --</option>
+                <!-- Preview Selection -->
+                <div class="card mb-4 border-secondary" id="previewSelectSection">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="bi bi-eye"></i> Step 2: Select Preview</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Select Test Debtor</label>
+                            <select class="form-select @(string.IsNullOrEmpty(Model.SubjectPreview) ? "" : "border-success")" asp-for="DebtorCode" id="debtorCodeSelect">
+                                <option value="">-- Select a debtor to preview --</option>
                                 @foreach (var d in Model.AvailableDebtorCodes)
                                 {
                                     <option value="@d.DebtorCode">@d.DebtorCode (@d.EmailCount email(s))</option>
                                 }
                             </select>
-                            <div class="form-text">Choose a debtor to preview</div>
                         </div>
+                        <button type="submit" asp-page-handler="Preview" class="btn btn-outline-primary w-100 mb-3">
+                            <i class="bi bi-arrow-repeat"></i> Update Preview
+                        </button>
                     </div>
+                </div>
 
-                    @if (!string.IsNullOrWhiteSpace(Model.SelectedOrganizationName) || !string.IsNullOrWhiteSpace(Model.SelectedNotes))
-                    {
-                        <div class="row g-3 mt-3">
-                            <div class="col-12">
-                                <div class="alert alert-light border">
-                                    <h6 class="mb-2">Selected Debtor Info:</h6>
-                                    <p class="mb-1"><strong>Debtor Code:</strong> @Model.DebtorCode</p>
-                                    <p class="mb-1"><strong>Organization:</strong> @Model.SelectedOrganizationName</p>
-                                    <p class="mb-0"><strong>Notes:</strong> @Model.SelectedNotes</p>
+                <!-- Actions -->
+                 <div class="card shadow mb-4">
+                     <div class="card-body">
+                        <div class="d-grid gap-2">
+                             <button type="submit" asp-page-handler="Save" class="btn btn-outline-secondary">
+                                 <i class="bi bi-save"></i> Save Draft
+                            </button>
+                            <button type="submit" class="btn btn-primary btn-lg fw-bold shadow">
+                                Proceed to Review <i class="bi bi-arrow-right-circle ms-2"></i>
+                            </button>
+                        </div>
+                     </div>
+                 </div>
+            </div>
+
+            <!-- Right Column: Preview Output -->
+            <div class="col-md-7">
+                @if (!string.IsNullOrWhiteSpace(Model.SubjectPreview))
+                {
+                    <div class="card border-success shadow-sm sticky-top" style="top: 1rem; z-index: 1000;">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0"><i class="bi bi-check2-circle"></i> Live Preview</h5>
+                        </div>
+                        <div class="card-body bg-light">
+                             @if (!string.IsNullOrWhiteSpace(Model.SelectedOrganizationName))
+                            {
+                                <div class="alert alert-light border mb-3 py-2">
+                                     <small class="text-muted d-block uppercase fw-bold" style="font-size: 0.75rem; letter-spacing: 0.5px;">Recipient Context</small>
+                                    <div class="row">
+                                        <div class="col-md-6"><strong>Debtor:</strong> @Model.DebtorCode</div>
+                                        <div class="col-md-6"><strong>Org:</strong> @Model.SelectedOrganizationName</div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                    }
+                            }
 
-                    <div class="row g-3 mt-3">
-                        <div class="col-12">
-                            <div class="alert alert-info">
-                                <i class="bi bi-info-circle"></i> <strong>Note:</strong> Preview settings are independent from the saved template above. Fill in Email Type and Period here to test the preview.
-                            </div>
+                            <label class="form-label text-muted fw-bold small text-uppercase">Subject Line</label>
+                            <div class="template-preview mb-3 border-success">@Model.SubjectPreview</div>
+                            
+                            <label class="form-label text-muted fw-bold small text-uppercase">Email Body</label>
+                            <div class="template-preview border-success" style="max-height: 600px; overflow-y: auto;">@Model.BodyPreview</div>
                         </div>
                     </div>
-
-                    <div class="row g-3 mt-3">
-                        <div class="col-12 d-flex justify-content-end">
-                            <button type="submit" class="btn btn-outline-primary"><i class="bi bi-eye"></i> Preview</button>
+                }
+                else
+                {
+                    <div class="card bg-light border-light text-center py-5">
+                        <div class="card-body text-muted">
+                            <i class="bi bi-arrow-left-circle display-4 mb-3 d-block"></i>
+                            <h5>No Preview Generated</h5>
+                            <p>Configure settings and select a debtor on the left to see the email preview here.</p>
                         </div>
                     </div>
-                </form>
+                }
             </div>
         </div>
+    </form>
 
-        @if (!string.IsNullOrWhiteSpace(Model.SubjectPreview))
-        {
-            <div class="card mb-4">
-                <div class="card-header bg-primary text-white"><h5 class="mb-0">Subject Preview</h5></div>
-                <div class="card-body">
-                    <div class="template-preview">@Model.SubjectPreview</div>
-                </div>
-            </div>
-        }
-
-        @if (!string.IsNullOrWhiteSpace(Model.BodyPreview))
-        {
-            <div class="card mb-4">
-                <div class="card-header bg-secondary text-white"><h5 class="mb-0">Body Preview</h5></div>
-                <div class="card-body">
-                    <div class="template-preview">@Model.BodyPreview</div>
-                </div>
-            </div>
-        }
-
-        <div class="card">
-            <div class="card-header"><h5 class="mb-0">Default Bodies</h5></div>
-            <div class="card-body">
-                <h6>SOA &amp; Invoice</h6>
-<pre class="template-preview">Good day to you
+    <!-- Reference Section (Accordion) -->
+     <div class="accordion mt-4 mb-5" id="templateRefAccordion">
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="headingRef">
+                <button class="accordion-button collapsed text-muted" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRef" aria-expanded="false" aria-controls="collapseRef">
+                    <i class="bi bi-journal-text me-2"></i> View Default Template Reference
+                </button>
+            </h2>
+            <div id="collapseRef" class="accordion-collapse collapse" aria-labelledby="headingRef" data-bs-parent="#templateRefAccordion">
+                <div class="accordion-body bg-light">
+                    <h6>SOA &amp; Invoice</h6>
+<pre class="small text-muted border p-2 bg-white rounded">Good day to you
 The attached statement reflects your account balance.
 
 Please check the statement provided.
@@ -193,8 +185,8 @@ This is an auto-generated email, please DO NOT REPLY. Any replies to this
 email will be disregarded.
 
 ***************************************************************************</pre>
-                <h6 class="mt-4">Overdue</h6>
-<pre class="template-preview">Good day to you
+                    <h6 class="mt-3">Overdue</h6>
+<pre class="small text-muted border p-2 bg-white rounded">Good day to you
 
 Kindly find the attached statement of account and invoice.
 
@@ -209,13 +201,64 @@ Thank you
 PIC name: Ms. Ika
 Email: atgroupoperation02@gmail.com
 Direct Line: 018-7864855</pre>
+                </div>
             </div>
         </div>
     </div>
 </div>
+</div>
 
 @section Scripts {
     <script>
-        // Optional: You can add any preview-related JavaScript here if needed
+        document.addEventListener("DOMContentLoaded", function() {
+            var typeSelect = document.getElementById("TemplateType");
+            var periodContainer = document.getElementById("periodContainer");
+            var periodInput = document.getElementById("Period");
+            var previewSelectSection = document.getElementById("previewSelectSection");
+
+            function updateUI() {
+                var type = typeSelect ? typeSelect.value : "";
+                var period = periodInput ? periodInput.value : "";
+                var step1Valid = false;
+
+                if (type === "SoaInv") {
+                    if (periodContainer) {
+                        periodContainer.classList.remove("text-muted");
+                        periodContainer.style.opacity = "1";
+                    }
+                    if (periodInput) {
+                        periodInput.disabled = false;
+                    }
+                    if (period && period.trim().length > 0) step1Valid = true;
+                } else if (type === "Overdue") {
+                    if (periodContainer) {
+                        periodContainer.classList.add("text-muted");
+                        periodContainer.style.opacity = "0.5";
+                    }
+                    if (periodInput) {
+                         periodInput.disabled = true;
+                         periodInput.value = ""; // Clear value since it's not needed
+                    }
+                    step1Valid = true;
+                } else {
+                    // No type selected
+                    if (periodContainer) {
+                         periodContainer.classList.remove("text-muted");
+                         periodContainer.style.opacity = "1";
+                    }
+                    if (periodInput) periodInput.disabled = false;
+                    step1Valid = false;
+                }
+
+                if (previewSelectSection) {
+                    previewSelectSection.style.display = step1Valid ? "block" : "none";
+                }
+            }
+
+            if (typeSelect) typeSelect.addEventListener("change", updateUI);
+            if (periodInput) periodInput.addEventListener("input", updateUI);
+
+            updateUI();
+        });
     </script>
 }

@@ -21,14 +21,10 @@ public class TemplateModel : PageModel
     public TemplateType? TemplateType { get; set; }
 
     [BindProperty]
-    public string Period { get; set; } = string.Empty;
+    public string? Period { get; set; }
 
     [BindProperty]
     public string DebtorCode { get; set; } = string.Empty;
-
-    // Preview-only fields (separate from saved template)
-    public TemplateType? PreviewTemplateType { get; set; }
-    public string? PreviewPeriod { get; set; }
 
     // Available debtor codes from recipients
     public List<DebtorCodeOption> AvailableDebtorCodes { get; set; } = new();
@@ -64,60 +60,82 @@ public class TemplateModel : PageModel
                 _logger.LogWarning(ex, "Failed to load saved template from session");
             }
         }
+        else
+        {
+            AttemptAutoSelectTemplate();
+        }
+    }
+
+    private void AttemptAutoSelectTemplate()
+    {
+        var uploadResultJson = HttpContext.Session.GetString("UploadResult");
+        if (string.IsNullOrEmpty(uploadResultJson)) return;
+
+        try
+        {
+            var uploadResult = JsonSerializer.Deserialize<UploadResult>(uploadResultJson);
+            if (uploadResult?.DebtorAttachments == null) return;
+
+            int overdueCount = 0;
+            int soaInvCount = 0;
+
+            foreach (var da in uploadResult.DebtorAttachments)
+            {
+                if (da.OverdueFiles.Any() || !string.IsNullOrEmpty(da.OverdueFile)) overdueCount++;
+                if (da.InvoiceFiles.Any() || !string.IsNullOrEmpty(da.InvoiceFile) || 
+                    da.StatementFiles.Any() || !string.IsNullOrEmpty(da.StatementFile)) soaInvCount++;
+            }
+
+            if (overdueCount > soaInvCount)
+            {
+                TemplateType = Models.TemplateType.Overdue;
+                _logger.LogInformation("Auto-selected Overdue template. Overdue: {Overdue}, SoaInv: {SoaInv}", overdueCount, soaInvCount);
+            }
+            else if (soaInvCount > 0)
+            {
+                TemplateType = Models.TemplateType.SoaInv;
+                _logger.LogInformation("Auto-selected SoaInv template. Overdue: {Overdue}, SoaInv: {SoaInv}", overdueCount, soaInvCount);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to auto-select template from upload data");
+        }
     }
 
     public IActionResult OnPostPreview()
     {
         // CRITICAL: Clear ModelState to prevent validation errors from [BindProperty] fields
-        // that are not part of the preview form (TemplateType, Period)
+        // that might be incomplete or validated differently during preview
         ModelState.Clear();
         
         HasUploadData = !string.IsNullOrEmpty(HttpContext.Session.GetString("ExtractionPath"));
         LoadAvailableDebtorCodes();
         
-        // Load saved template to restore Email Settings fields (so they don't appear blank)
-        var templateJson = HttpContext.Session.GetString("EmailTemplate");
-        if (!string.IsNullOrEmpty(templateJson))
+        // Get values from form directly (using the main field names)
+        var colTypeStr = Request.Form["TemplateType"].ToString();
+        var colPeriodStr = Request.Form["Period"].ToString();
+        
+        // Parse template type
+        if (!string.IsNullOrEmpty(colTypeStr) && Enum.TryParse<Models.TemplateType>(colTypeStr, out var parsedType))
         {
-            try
-            {
-                var savedTemplate = JsonSerializer.Deserialize<SavedTemplate>(templateJson);
-                if (savedTemplate != null)
-                {
-                    TemplateType = savedTemplate.TemplateType;
-                    Period = savedTemplate.Period;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to load saved template");
-            }
+            TemplateType = parsedType;
         }
         
-        // Get preview values from form
-        var previewTypeStr = Request.Form["PreviewTemplateType"].ToString();
-        var previewPeriodStr = Request.Form["PreviewPeriod"].ToString();
-        
-        // Parse preview template type
-        if (!string.IsNullOrEmpty(previewTypeStr) && Enum.TryParse<Models.TemplateType>(previewTypeStr, out var parsedType))
-        {
-            PreviewTemplateType = parsedType;
-        }
-        
-        PreviewPeriod = previewPeriodStr;
+        Period = colPeriodStr;
         
         LoadSelectedDebtorInfo();
 
-        // Validate preview fields only (not the main Email Settings fields)
-        if (!PreviewTemplateType.HasValue)
+        // Validate fields for preview
+        if (!TemplateType.HasValue)
         {
-            TempData["ErrorMessage"] = "Please select a Preview Email Type.";
+            TempData["ErrorMessage"] = "Please select an Email Type to preview.";
             return Page();
         }
 
-        if (string.IsNullOrWhiteSpace(PreviewPeriod))
+        if (TemplateType == Models.TemplateType.SoaInv && string.IsNullOrWhiteSpace(Period))
         {
-            TempData["ErrorMessage"] = "Please enter a Preview Period.";
+            TempData["ErrorMessage"] = "Please enter a Period (e.g., OCT 2025) to preview.";
             return Page();
         }
 
@@ -130,58 +148,57 @@ public class TemplateModel : PageModel
         var orgName = string.IsNullOrWhiteSpace(SelectedOrganizationName) ? "{organization name}" : SelectedOrganizationName;
         var notes = string.IsNullOrWhiteSpace(SelectedNotes) ? "{notes}" : SelectedNotes;
 
-        SubjectPreview = BuildSubject(PreviewTemplateType.Value, PreviewPeriod, DebtorCode, orgName);
-        BodyPreview = BuildBody(PreviewTemplateType.Value, notes);
+        SubjectPreview = BuildSubject(TemplateType.Value, Period, DebtorCode, orgName);
+        BodyPreview = BuildBody(TemplateType.Value, notes);
         
         _logger.LogInformation("Preview generated for debtor: {DebtorCode}, Type: {Type}, Period: {Period}", 
-            DebtorCode, PreviewTemplateType, PreviewPeriod);
+            DebtorCode, TemplateType, Period);
+            
         return Page();
     }
 
     public IActionResult OnPost()
     {
+        // This is the "Next" action
+        HasUploadData = !string.IsNullOrEmpty(HttpContext.Session.GetString("ExtractionPath"));
+        
+        // 1. Validate
+        if (!TemplateType.HasValue || (TemplateType == Models.TemplateType.SoaInv && string.IsNullOrWhiteSpace(Period)))
+        {
+             LoadAvailableDebtorCodes();
+             ModelState.AddModelError("", "Please configure Email Type and Period first.");
+             TempData["ErrorMessage"] = "Please complete the configuration.";
+             return Page();
+        }
+        
+        // 2. Save
+        var template = new SavedTemplate
+        {
+            TemplateType = TemplateType.Value,
+            Period = Period?.Trim() ?? string.Empty,
+            DebtorCode = "{debtor code}",
+            OrganizationName = "{organization name}",
+            Notes = "{notes}",
+            Subject = BuildSubject(TemplateType.Value, Period, "{debtor code}", "{organization name}"),
+            Body = BuildBody(TemplateType.Value, "{notes}")
+        };
+        
+        HttpContext.Session.SetString("EmailTemplate", JsonSerializer.Serialize(template));
+        
+        // 3. Redirect to Preview
+        return RedirectToPage("/Preview");
+    }
+
+    public IActionResult OnPostSave()
+    {
         HasUploadData = !string.IsNullOrEmpty(HttpContext.Session.GetString("ExtractionPath"));
         LoadAvailableDebtorCodes();
 
-        // If fields are empty, try to load from saved template first
-        if (!TemplateType.HasValue || string.IsNullOrWhiteSpace(Period))
+        // Validate
+        if (!TemplateType.HasValue || (TemplateType == Models.TemplateType.SoaInv && string.IsNullOrWhiteSpace(Period)))
         {
-            var templateJson = HttpContext.Session.GetString("EmailTemplate");
-            if (!string.IsNullOrEmpty(templateJson))
-            {
-                try
-                {
-                    var savedTemplate = JsonSerializer.Deserialize<SavedTemplate>(templateJson);
-                    if (savedTemplate != null)
-                    {
-                        if (!TemplateType.HasValue)
-                            TemplateType = savedTemplate.TemplateType;
-                        if (string.IsNullOrWhiteSpace(Period))
-                            Period = savedTemplate.Period;
-                        
-                        _logger.LogInformation("Loaded template from session for Go to Review. Type: {Type}, Period: {Period}", TemplateType, Period);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to load saved template for Go to Review");
-                }
-            }
-        }
-
-        // Validate Email Type and Period before going to Review
-        if (!TemplateType.HasValue)
-        {
-            ModelState.AddModelError(nameof(TemplateType), "Email type is required. Please select SOA & Invoice or Overdue.");
-            TempData["ErrorMessage"] = "Please complete Email Type and Period before proceeding to review.";
-            return Page();
-        }
-
-        if (string.IsNullOrWhiteSpace(Period))
-        {
-            ModelState.AddModelError(nameof(Period), "Period is required. Please enter a period (e.g., OCT 2025).");
-            TempData["ErrorMessage"] = "Please complete Email Type and Period before proceeding to review.";
-            return Page();
+             TempData["ErrorMessage"] = "Please complete all fields in Step 1 before saving.";
+             return Page();
         }
 
         // Create and save template to session
@@ -199,63 +216,30 @@ public class TemplateModel : PageModel
         try
         {
             HttpContext.Session.SetString("EmailTemplate", JsonSerializer.Serialize(template));
-            _logger.LogInformation("Email template saved and redirecting to Review page. Type: {Type}, Period: {Period}", TemplateType.Value, Period);
+            _logger.LogInformation("Draft template saved. Type: {Type}, Period: {Period}", TemplateType.Value, Period);
+            TempData["SuccessMessage"] = "Draft saved successfully. Ready for review.";
+            
+            // Generate preview for current page if user hasn't previewed yet (optional, but good UX)
+             if (string.IsNullOrEmpty(SubjectPreview) && !string.IsNullOrEmpty(DebtorCode))
+            {
+               LoadSelectedDebtorInfo();
+               SubjectPreview = BuildSubject(TemplateType.Value, Period, DebtorCode, SelectedOrganizationName ?? "{org}");
+               BodyPreview = BuildBody(TemplateType.Value, SelectedNotes ?? "{notes}");
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save template before redirecting to preview");
-            TempData["ErrorMessage"] = "Failed to save template. Please try again.";
+            _logger.LogError(ex, "Failed to save template");
+            TempData["ErrorMessage"] = "Failed to save template.";
             return Page();
         }
         
-        return RedirectToPage("/Preview");
-    }
-
-    public IActionResult OnPostSave()
-    {
-        HasUploadData = !string.IsNullOrEmpty(HttpContext.Session.GetString("ExtractionPath"));
-        LoadAvailableDebtorCodes();
-
-        if (!TemplateType.HasValue)
-        {
-            ModelState.AddModelError(nameof(TemplateType), "Email type is required. Please select SOA & Invoice or Overdue.");
-            TempData["ErrorMessage"] = "Email type is required.";
-            return Page();
-        }
-
-        if (string.IsNullOrWhiteSpace(Period))
-        {
-            ModelState.AddModelError(nameof(Period), "Period is required. Please enter a period (e.g., OCT 2025).");
-            TempData["ErrorMessage"] = "Period is required.";
-            return Page();
-        }
-
-        var template = new SavedTemplate
-        {
-            TemplateType = TemplateType.Value,
-            Period = Period?.Trim() ?? string.Empty,
-            DebtorCode = "{debtor code}",
-            OrganizationName = "{organization name}",
-            Notes = "{notes}",
-            Subject = BuildSubject(TemplateType.Value, Period, "{debtor code}", "{organization name}"),
-            Body = BuildBody(TemplateType.Value, "{notes}")
-        };
+        // Removed redirect, just stay on page (like upload/recipient do with next button)
+        // Or if the user clicked "Save draft", maybe just stay.
+        // But the button was "Save Draft".
+        // The "Next" button goes to Review page.
         
-        try
-        {
-            HttpContext.Session.SetString("EmailTemplate", JsonSerializer.Serialize(template));
-            _logger.LogInformation("Email template saved to session. Type: {Type}, Period: {Period}", TemplateType.Value, Period);
-            TempData["SuccessMessage"] = $"Email template saved successfully! Type: {TemplateType.Value}, Period: {Period}";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to save template to session");
-            TempData["ErrorMessage"] = "Failed to save template. Please try again.";
-            return Page();
-        }
-        
-        // Redirect to same page to properly reload saved template
-        return RedirectToPage("/Template");
+        return Page();
     }
 
     private void LoadAvailableDebtorCodes()

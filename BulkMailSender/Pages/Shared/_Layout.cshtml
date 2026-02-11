@@ -1,4 +1,13 @@
-﻿<!DOCTYPE html>
+﻿@using Microsoft.AspNetCore.Http
+@{
+    string ActiveClass(string page)
+    {
+        var currentPage = ViewContext.RouteData.Values["page"]?.ToString();
+        // exact match or subpath match (for when we have deeper structures, though here mostly flat)
+        return string.Equals(currentPage, page, StringComparison.OrdinalIgnoreCase) ? "active fw-bold border-bottom border-primary" : "";
+    }
+}
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -12,49 +21,58 @@
 </head>
 <body>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+        <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom box-shadow mb-3">
             <div class="container">
                 <a class="navbar-brand" asp-area="" asp-page="/Index">
-                    <i class="bi bi-envelope-paper"></i> BulkMailSender
+                    <i class="bi bi-envelope-paper-fill text-primary"></i> BulkMailSender
                 </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
                         aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
+                <div class="navbar-collapse collapse d-lg-inline-flex justify-content-between">
+                    <ul class="navbar-nav flex-grow-1 align-items-center">
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Index">
-                                <i class="bi bi-house"></i> Home
+                            <a class="nav-link text-dark @ActiveClass("/Index")" asp-area="" asp-page="/Index">
+                                <i class="bi bi-speedometer2"></i> Dashboard
+                            </a>
+                        </li>
+                        
+                        <!-- Workflow Divider -->
+                        <li class="nav-item d-none d-lg-block mx-2">
+                            <span class="text-muted">|</span>
+                        </li>
+
+                        <li class="nav-item">
+                            <a class="nav-link text-dark @ActiveClass("/Recipients")" asp-area="" asp-page="/Recipients">
+                                <span class="badge rounded-pill bg-light text-dark border">1</span> Recipients
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Recipients">
-                                <i class="bi bi-people"></i> Recipients
+                            <a class="nav-link text-dark @ActiveClass("/Upload")" asp-area="" asp-page="/Upload">
+                                <span class="badge rounded-pill bg-light text-dark border">2</span> Upload
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Upload">
-                                <i class="bi bi-cloud-upload"></i> Upload
+                            <a class="nav-link text-dark @ActiveClass("/Template")" asp-area="" asp-page="/Template">
+                                <span class="badge rounded-pill bg-light text-dark border">3</span> Draft
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Template">
-                                <i class="bi bi-envelope"></i>Draft
+                            <a class="nav-link text-dark @ActiveClass("/Preview")" asp-area="" asp-page="/Preview">
+                                <span class="badge rounded-pill bg-light text-dark border">4</span> Preview
                             </a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Preview">
-                                <i class="bi bi-clipboard-check"></i>Preview
-                            </a>
+
+                         <!-- Settings Divider -->
+                        <li class="nav-item d-none d-lg-block mx-2">
+                            <span class="text-muted">|</span>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Settings">
+
+                        <li class="nav-item ms-auto">
+                            <a class="nav-link text-dark @ActiveClass("/Settings")" asp-area="" asp-page="/Settings">
                                 <i class="bi bi-gear"></i> Settings
                             </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Privacy">Privacy</a>
                         </li>
                     </ul>
                 </div>

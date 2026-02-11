@@ -1,10 +1,130 @@
 ﻿@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Home page";
+    ViewData["Title"] = "Dashboard";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="py-4">
+    <div class="text-center mb-5">
+        <h1 class="display-5 fw-bold text-primary">Bulk Email Campaign Manager</h1>
+        <p class="lead text-muted">Follow the steps below to prepare and send your bulk emails securely.</p>
+    </div>
+
+    <div class="row g-4 justify-content-center">
+        <!-- Step 1: Recipients -->
+        <div class="col-md-3">
+            <div class="card h-100 text-center border-0 shadow-sm @(Model.HasRecipients ? "border-start border-success border-5" : "")">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <i class="bi bi-people display-4 @(Model.HasRecipients ? "text-success" : "text-muted")"></i>
+                    </div>
+                    <h5 class="card-title">1. Recipients</h5>
+                    @if (Model.HasRecipients)
+                    {
+                        <p class="card-text text-success fw-bold">
+                            <i class="bi bi-check-circle-fill"></i> @Model.RecipientCount Loaded
+                        </p>
+                        <a asp-page="/Recipients" class="btn btn-outline-success btn-sm w-100">Review List</a>
+                    }
+                    else
+                    {
+                        <p class="card-text text-muted">No recipients loaded</p>
+                        <a asp-page="/Recipients" class="btn btn-primary btn-sm w-100">Upload CSV</a>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Files -->
+        <div class="col-md-3">
+            <div class="card h-100 text-center border-0 shadow-sm @(Model.HasUploads ? "border-start border-success border-5" : "")">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <i class="bi bi-cloud-upload display-4 @(Model.HasUploads ? "text-success" : "text-muted")"></i>
+                    </div>
+                    <h5 class="card-title">2. Attachments</h5>
+                    
+                     @if (!Model.HasRecipients)
+                    {
+                        <p class="card-text text-muted small">Step 1 Required</p>
+                        <button class="btn btn-secondary btn-sm w-100" disabled>Pending...</button>
+                    }
+                    else if (Model.HasUploads)
+                    {
+                        <p class="card-text text-success fw-bold">
+                            <i class="bi bi-check-circle-fill"></i> Files Ready
+                        </p>
+                        <a asp-page="/Upload" class="btn btn-outline-success btn-sm w-100">Review Files</a>
+                    }
+                    else
+                    {
+                        <p class="card-text text-muted">No files uploaded</p>
+                        <a asp-page="/Upload" class="btn btn-primary btn-sm w-100">Upload Zip</a>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3 : Draft -->
+        <div class="col-md-3">
+            <div class="card h-100 text-center border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <i class="bi bi-envelope-open display-4 text-muted"></i>
+                    </div>
+                    <h5 class="card-title">3. Draft Email</h5>
+                    @if (!Model.HasUploads)
+                    {
+                        <p class="card-text text-muted small">Step 2 Required</p>
+                        <button class="btn btn-secondary btn-sm w-100" disabled>Pending...</button>
+                    }
+                    else
+                    {
+                        <p class="card-text text-info">Construct Message</p>
+                        <a asp-page="/Template" class="btn btn-primary btn-sm w-100">Edit Template</a>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4: Preview -->
+        <div class="col-md-3">
+            <div class="card h-100 text-center border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <i class="bi bi-send display-4 text-muted"></i>
+                    </div>
+                    <h5 class="card-title">4. Send</h5>
+                     @if (!Model.HasUploads)
+                    {
+                         <p class="card-text text-muted small">Steps 1-3 Required</p>
+                        <button class="btn btn-secondary btn-sm w-100" disabled>Pending...</button>
+                    }
+                    else
+                    {
+                        <p class="card-text text-info">Final Review</p>
+                        <a asp-page="/Preview" class="btn btn-primary btn-sm w-100">Go to Preview</a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.HasRecipients || Model.HasUploads)
+    {
+        <div class="row mt-5">
+            <div class="col-md-6 offset-md-3 text-center">
+                 <div class="alert alert-light border">
+                    <h5 class="alert-heading text-danger"><i class="bi bi-exclamation-triangle"></i> Start Over?</h5>
+                    <p class="mb-0">Need to start a completely new campaign? This will clear all current data.</p>
+                    <hr>
+                    <form method="post" asp-page-handler="Reset">
+                        <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to clear all data and start over?');">
+                            <i class="bi bi-trash"></i> Clear All Data
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
 </div>

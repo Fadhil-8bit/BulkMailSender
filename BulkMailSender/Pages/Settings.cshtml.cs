@@ -30,21 +30,19 @@ public class SettingsModel : PageModel
     [BindProperty]
     public EmailSettings CurrentSettings { get; set; } = new();
 
+    [BindProperty]
+    public string NewProfileName { get; set; } = string.Empty;
+
+    public string ActiveProfile { get; set; } = string.Empty;
+    public List<string> AvailableProfiles { get; set; } = new();
+
     public string? TestResult { get; set; }
     public bool TestSuccess { get; set; }
     public bool HasSavedSettings { get; set; }
 
     public async Task OnGetAsync()
     {
-        CurrentSettings = await _settingsManager.GetActiveSettingsAsync();
-        HasSavedSettings = await _settingsManager.HasSavedSettingsAsync();
-
-        await _settingsManager.UpdateSessionAsync(CurrentSettings);
-        
-        if (HasSavedSettings)
-        {
-             _logger.LogInformation("Loaded settings from persistent storage and updated session");
-        }
+        await LoadPageDataAsync();
     }
 
     public async Task<IActionResult> OnPostUseDefaultAsync()
@@ -53,7 +51,7 @@ public class SettingsModel : PageModel
         CurrentSettings = _settingsManager.GetPreset("ProductionDefault");
         TestResult = "Production settings loaded. Please review and click 'Apply Changes' to save.";
         TestSuccess = true;
-        HasSavedSettings = await _settingsManager.HasSavedSettingsAsync();
+        await LoadPageDataAsync();
         return Page();
     }
 
@@ -63,7 +61,7 @@ public class SettingsModel : PageModel
         CurrentSettings = _settingsManager.GetPreset("Debug");
         TestResult = "Debug/Local settings loaded. Please review and click 'Apply Changes' to save.";
         TestSuccess = true;
-        HasSavedSettings = await _settingsManager.HasSavedSettingsAsync();
+        await LoadPageDataAsync();
         return Page();
     }
 
@@ -72,9 +70,52 @@ public class SettingsModel : PageModel
         await SaveToStorageAndSessionAsync();
         TestResult = " Settings saved successfully! They will persist across restarts.";
         TestSuccess = true;
-        HasSavedSettings = await _settingsManager.HasSavedSettingsAsync();
+        await LoadPageDataAsync();
         return Page();
     }
+    
+    public async Task<IActionResult> OnPostSaveProfileAsync()
+    {
+        if (string.IsNullOrWhiteSpace(NewProfileName))
+        {
+            TestResult = "Profile Name is required.";
+            TestSuccess = false;
+            await LoadPageDataAsync();
+            return Page();
+        }
+
+        // Switch to new profile (session update)
+        await _settingsManager.SwitchProfileAsync(NewProfileName);
+        
+        // Save current form settings to this new profile
+        await SaveToStorageAndSessionAsync();
+
+        TestResult = $"Profile '{NewProfileName}' created and saved successfully.";
+        TestSuccess = true;
+        
+        // Clear input
+        NewProfileName = string.Empty;
+        
+        await LoadPageDataAsync();
+        return Page();
+    }
+
+    public async Task<IActionResult> OnPostSwitchProfileAsync(string selectedProfile)
+    {
+        if (!string.IsNullOrWhiteSpace(selectedProfile))
+        {
+            await _settingsManager.SwitchProfileAsync(selectedProfile);
+            // Reload settings from the new profile
+            CurrentSettings = await _settingsManager.GetActiveSettingsAsync();
+            
+            TestResult = $"Switched to profile: {selectedProfile}";
+            TestSuccess = true;
+        }
+        
+        await LoadPageDataAsync();
+        return Page();
+    }
+
 
     public async Task<IActionResult> OnPostTestConnectionAsync()
     {
@@ -93,7 +134,7 @@ public class SettingsModel : PageModel
             _logger.LogError(ex, "SMTP test failed");
         }
 
-        HasSavedSettings = await _settingsManager.HasSavedSettingsAsync();
+        await LoadPageDataAsync();
         return Page();
     }
 
@@ -109,12 +150,33 @@ public class SettingsModel : PageModel
         
         TestResult = "Saved settings cleared. Reverted to defaults.";
         TestSuccess = false;
-        HasSavedSettings = false;
+        await LoadPageDataAsync();
         return Page();
     }
 
     private async Task SaveToStorageAndSessionAsync()
     {
         await _settingsManager.SaveSettingsAsync(CurrentSettings);
+    }
+    
+    private async Task LoadPageDataAsync()
+    {
+        if (CurrentSettings == null || string.IsNullOrEmpty(CurrentSettings.Host))
+        {
+            CurrentSettings = await _settingsManager.GetActiveSettingsAsync();
+        }
+        
+        HasSavedSettings = await _settingsManager.HasSavedSettingsAsync();
+        ActiveProfile = _settingsManager.CurrentProfileName;
+        AvailableProfiles = _settingsManager.GetAvailableProfiles();
+
+        if (HttpContext.Request.Method == "GET")
+        {
+            await _settingsManager.UpdateSessionAsync(CurrentSettings);
+            if (HasSavedSettings)
+            {
+                 _logger.LogInformation("Loaded settings from persistent storage and updated session");
+            }
+        }
     }
 }

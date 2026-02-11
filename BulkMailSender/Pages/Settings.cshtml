@@ -23,6 +23,42 @@
         </div>
     }
 
+    <!-- Profile Management Section -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body p-4">
+             <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="text-primary mb-0"><i class="bi bi-person-workspace me-2"></i>Profile Management</h5>
+                <span class="badge bg-light text-dark border">Active: <strong>@Model.ActiveProfile</strong></span>
+            </div>
+             <div class="row g-3">
+                 <!-- Profile Switcher -->
+                 <div class="col-md-6">
+                     <form method="post" asp-page-handler="SwitchProfile" class="d-flex gap-2 align-items-end">
+                         <div class="flex-grow-1">
+                            <label class="form-label text-muted small fw-bold">Switch Profile</label>
+                            <select class="form-select" name="selectedProfile" onchange="this.form.submit()">
+                                @foreach(var p in Model.AvailableProfiles) {
+                                    <option value="@p" selected="@(p == Model.ActiveProfile)">@p</option>
+                                }
+                            </select>
+                         </div>
+                    </form>
+                 </div>
+
+                 <!-- Save New Profile -->
+                 <div class="col-md-6">
+                    <label class="form-label text-muted small fw-bold">Create New Profile</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" form="settingsForm" asp-for="NewProfileName" placeholder="New Profile Name" />
+                        <button type="submit" form="settingsForm" asp-page-handler="SaveProfile" class="btn btn-success">
+                            <i class="bi bi-plus-lg me-2"></i> Save Profile
+                        </button>
+                    </div>
+                 </div>
+             </div>
+        </div>
+    </div>
+
     <form method="post" id="settingsForm">
         <div class="card shadow-sm border-0">
             <div class="card-header bg-white border-bottom-0 pb-0 pt-4 px-4">

@@ -11,6 +11,9 @@ public class SettingsManager : ISettingsManager
     private readonly ILogger<SettingsManager> _logger;
     private readonly IHttpContextAccessor _httpContextAccessor;
 
+    private const string DefaultProfileKey = "CurrentProfileName";
+    private const string DefaultProfile = "smtp-settings";
+
     public SettingsManager(
         SettingsStorageService storageService,
         IOptions<EmailPresets> presets,
@@ -23,32 +26,42 @@ public class SettingsManager : ISettingsManager
         _httpContextAccessor = httpContextAccessor;
     }
 
+    public string CurrentProfileName
+    {
+        get
+        {
+            var session = _httpContextAccessor.HttpContext?.Session;
+            var path = session?.GetString(DefaultProfileKey);
+            return string.IsNullOrEmpty(path) ? DefaultProfile : path;
+        }
+    }
+
     public async Task<EmailSettings> GetActiveSettingsAsync()
     {
-        // 1. Try to load from persistent storage
-        var savedSettings = await _storageService.LoadSettingsAsync();
+        // 1. Try to load from persistent storage using current profile
+        var savedSettings = await _storageService.LoadSettingsAsync(CurrentProfileName);
         
         if (savedSettings != null && !string.IsNullOrWhiteSpace(savedSettings.Host))
         {
-            _logger.LogDebug("Using saved SMTP settings from storage.");
+            _logger.LogDebug("Using saved SMTP settings from storage (Profile: {Profile}).", CurrentProfileName);
             return savedSettings;
         }
 
         // 2. Fall back to ProductionDefault
-        _logger.LogInformation("No saved settings found. Using ProductionDefault preset.");
+        _logger.LogInformation("No saved settings found for profile {Profile}. Using ProductionDefault preset.", CurrentProfileName);
         return GetPreset("ProductionDefault");
     }
 
     public async Task SaveSettingsAsync(EmailSettings settings)
     {
-        await _storageService.SaveSettingsAsync(settings);
+        await _storageService.SaveSettingsAsync(settings, CurrentProfileName);
         await UpdateSessionAsync(settings);
-        _logger.LogInformation("Settings saved to persistent storage and session updated.");
+        _logger.LogInformation("Settings saved to persistent storage (Profile: {Profile}) and session updated.", CurrentProfileName);
     }
 
     public async Task ClearSettingsAsync()
     {
-        await _storageService.DeleteSettingsAsync();
+        await _storageService.DeleteSettingsAsync(CurrentProfileName);
         
         // Remove from session
         var session = _httpContextAccessor.HttpContext?.Session;
@@ -57,7 +70,7 @@ public class SettingsManager : ISettingsManager
             session.Remove("SmtpSettings");
         }
 
-        _logger.LogInformation("Settings cleared from persistent storage and session.");
+        _logger.LogInformation("Settings cleared from persistent storage (Profile: {Profile}) and session.", CurrentProfileName);
     }
 
     public EmailSettings GetPreset(string presetName)
@@ -88,7 +101,7 @@ public class SettingsManager : ISettingsManager
 
     public Task<bool> HasSavedSettingsAsync()
     {
-        return Task.FromResult(_storageService.HasSavedSettings());
+        return Task.FromResult(_storageService.HasSavedSettings(CurrentProfileName));
     }
 
     public Task UpdateSessionAsync(EmailSettings settings)
@@ -99,5 +112,26 @@ public class SettingsManager : ISettingsManager
             session.SetString("SmtpSettings", JsonSerializer.Serialize(settings));
         }
         return Task.CompletedTask;
+    }
+
+    public async Task SwitchProfileAsync(string profileName)
+    {
+        if (string.IsNullOrWhiteSpace(profileName)) return;
+
+        var session = _httpContextAccessor.HttpContext?.Session;
+        if (session != null)
+        {
+            session.SetString(DefaultProfileKey, profileName);
+            _logger.LogInformation("Switched to profile: {Profile}", profileName);
+            
+            // Reload settings for new profile
+            var settings = await GetActiveSettingsAsync();
+            await UpdateSessionAsync(settings);
+        }
+    }
+
+    public List<string> GetAvailableProfiles()
+    {
+        return _storageService.ListProfiles();
     }
 }

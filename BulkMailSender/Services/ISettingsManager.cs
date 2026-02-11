@@ -34,4 +34,19 @@ public interface ISettingsManager
     /// Updates the current session with the provided settings.
     /// </summary>
     Task UpdateSessionAsync(EmailSettings settings);
+
+    /// <summary>
+    /// Gets the name of the current active profile.
+    /// </summary>
+    string CurrentProfileName { get; }
+
+    /// <summary>
+    /// Switches the active profile and loads its settings.
+    /// </summary>
+    Task SwitchProfileAsync(string profileName);
+
+    /// <summary>
+    /// Lists all available profiles.
+    /// </summary>
+    List<string> GetAvailableProfiles();
 }

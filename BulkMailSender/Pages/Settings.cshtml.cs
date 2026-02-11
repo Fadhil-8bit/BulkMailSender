@@ -8,6 +8,8 @@ using System.Net;
 
 namespace BulkMailSender.Pages;
 
+public record ProfileOption(string Name, bool IsDefault);
+
 public class SettingsModel : PageModel
 {
     private readonly IConfiguration _configuration;
@@ -34,11 +36,14 @@ public class SettingsModel : PageModel
     public string NewProfileName { get; set; } = string.Empty;
 
     public string ActiveProfile { get; set; } = string.Empty;
-    public List<string> AvailableProfiles { get; set; } = new();
+    public List<ProfileOption> AvailableProfiles { get; set; } = new();
 
     public string? TestResult { get; set; }
     public bool TestSuccess { get; set; }
     public bool HasSavedSettings { get; set; }
+    public bool IsModified { get; set; }
+    public string ConfigurationStatus { get; set; } = string.Empty;
+    public string ConfigurationStatusClass { get; set; } = "text-muted";
 
     public async Task OnGetAsync()
     {
@@ -189,7 +194,44 @@ public class SettingsModel : PageModel
         
         HasSavedSettings = await _settingsManager.HasSavedSettingsAsync();
         ActiveProfile = _settingsManager.CurrentProfileName;
-        AvailableProfiles = _settingsManager.GetAvailableProfiles();
+        
+        var profileNames = _settingsManager.GetAvailableProfiles();
+        AvailableProfiles = profileNames
+            .Select(name => new ProfileOption(name, name == "smtp-settings"))
+            .OrderByDescending(p => p.IsDefault)
+            .ThenBy(p => p.Name)
+            .ToList();
+
+        // Check for modifications against stored version
+        var storedSettings = await _settingsManager.GetActiveSettingsAsync();
+
+        var currentJson = JsonSerializer.Serialize(CurrentSettings);
+        var storedJson = JsonSerializer.Serialize(storedSettings);
+        
+        IsModified = (currentJson != storedJson);
+
+        // Determine Status
+        var debugPreset = _settingsManager.GetPreset("Debug");
+        var productionPreset = _settingsManager.GetPreset("ProductionDefault");
+        
+        var debugJson = JsonSerializer.Serialize(debugPreset);
+        var productionJson = JsonSerializer.Serialize(productionPreset);
+
+        if (currentJson == debugJson)
+        {
+            ConfigurationStatus = "Debug / Local Profile (PaperCut)";
+            ConfigurationStatusClass = "badge bg-warning text-dark";
+        }
+        else if (currentJson == productionJson)
+        {
+            ConfigurationStatus = "Default Production Profile";
+            ConfigurationStatusClass = "badge bg-success";
+        }
+        else
+        {
+            ConfigurationStatus = "Custom / Modified Profile";
+            ConfigurationStatusClass = "badge bg-secondary";
+        }
 
         if (HttpContext.Request.Method == "GET")
         {

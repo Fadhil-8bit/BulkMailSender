@@ -135,11 +135,15 @@ public class SettingsManager : ISettingsManager
         return _storageService.ListProfiles();
     }
 
-    public Task DeleteProfileAsync(string profileName)
+    public async Task DeleteProfileAsync(string profileName)
     {
+        // If deleting the currently active profile, switch to default first
+        if (string.Equals(profileName, CurrentProfileName, StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogInformation("Deleting active profile '{Profile}'. Switching to default before deletion.", profileName);
+            await SwitchProfileAsync(DefaultProfile);
+        }
+
         _storageService.DeleteProfileFile(profileName);
-        // If we deleted the current profile, we might want to reset session, 
-        // but the system handles missing files gracefully by falling back to defaults.
-        return Task.CompletedTask;
     }
 }

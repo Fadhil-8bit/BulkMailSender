@@ -30,36 +30,55 @@
                 <h5 class="text-primary mb-0"><i class="bi bi-person-workspace me-2"></i>Profile Management</h5>
                 <span class="badge bg-light text-dark border">Active: <strong>@Model.ActiveProfile</strong></span>
             </div>
-             <div class="row g-3">
-                 <!-- Profile Switcher -->
-                 <div class="col-md-6">
-                     <form method="post" asp-page-handler="SwitchProfile" class="d-flex gap-2 align-items-end">
-                         <div class="flex-grow-1">
-                            <label class="form-label text-muted small fw-bold">Switch Profile</label>
-                            <select class="form-select" name="selectedProfile" onchange="this.form.submit()">
-                                @foreach(var p in Model.AvailableProfiles) {
-                                    <option value="@p" selected="@(p == Model.ActiveProfile)">@p</option>
-                                }
-                            </select>
-                         </div>
-                         <button type="submit" asp-page-handler="DeleteProfile" class="btn btn-danger" 
-                                 onclick="return confirm('Are you sure you want to PERMANENTLY DELETE the selected profile?');"
-                                 title="Delete Selected Profile">
-                             <i class="bi bi-trash"></i>
-                         </button>
-                    </form>
-                 </div>
+             
+             <!-- Save New Profile -->
+             <div class="mb-4">
+                <label class="form-label text-muted small fw-bold">Create New Profile</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" form="settingsForm" asp-for="NewProfileName" placeholder="New Profile Name" />
+                    <button type="submit" form="settingsForm" asp-page-handler="SaveProfile" class="btn btn-success">
+                        <i class="bi bi-plus-lg me-2"></i> Save Profile
+                    </button>
+                </div>
+             </div>
 
-                 <!-- Save New Profile -->
-                 <div class="col-md-6">
-                    <label class="form-label text-muted small fw-bold">Create New Profile</label>
-                    <div class="input-group">
-                        <input type="text" class="form-control" form="settingsForm" asp-for="NewProfileName" placeholder="New Profile Name" />
-                        <button type="submit" form="settingsForm" asp-page-handler="SaveProfile" class="btn btn-success">
-                            <i class="bi bi-plus-lg me-2"></i> Save Profile
-                        </button>
-                    </div>
-                 </div>
+             <!-- Available Profiles List -->
+             <div>
+                 <label class="form-label text-muted small fw-bold">Available Profiles</label>
+                 <form method="post">
+                     <div class="list-group shadow-sm" style="max-height: 250px; overflow-y: auto;">
+                        @foreach(var profile in Model.AvailableProfiles) 
+                        {
+                            var isActive = profile == Model.ActiveProfile;
+                            <div class="list-group-item d-flex justify-content-between align-items-center @(isActive ? "active" : "")">
+                                <span class="text-truncate me-2" title="@profile">
+                                    @if(isActive) { <i class="bi bi-check-circle-fill me-1"></i> }
+                                    @profile
+                                </span>
+                                
+                                <div class="btn-group btn-group-sm">
+                                    @if(!isActive) 
+                                    {
+                                        <button type="submit" asp-page-handler="SwitchProfile" asp-route-selectedProfile="@profile" 
+                                                class="btn btn-sm btn-light text-dark border" title="Switch to @profile">
+                                            Switch
+                                        </button>
+                                    }
+                                    
+                                    @if(profile != "smtp-settings") 
+                                    {
+                                        <button type="submit" asp-page-handler="DeleteProfile" asp-route-selectedProfile="@profile" 
+                                                class="btn btn-sm btn-danger" 
+                                                onclick="return confirm('Are you sure you want to delete profile @profile?')"
+                                                title="Delete @profile">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        }
+                     </div>
+                </form>
              </div>
         </div>
     </div>
@@ -75,8 +94,8 @@
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link fw-bold" id="presets-tab" data-bs-toggle="tab" data-bs-target="#presets" type="button" role="tab" aria-selected="false">
-                            <i class="bi bi-stars me-2"></i> Preset Actions
+                        <button class="nav-link fw-bold" id="quick-actions-tab" data-bs-toggle="tab" data-bs-target="#quick-actions" type="button" role="tab" aria-selected="false">
+                            <i class="bi bi-stars me-2"></i> Quick Actions
                         </button>
                     </li>
                 </ul>
@@ -181,8 +200,8 @@
                         </div>
                     </div>
 
-                    <!-- TAB 2: PRESET ACTIONS -->
-                    <div class="tab-pane fade" id="presets" role="tabpanel">
+                    <!-- TAB 2: QUICK ACTIONS -->
+                    <div class="tab-pane fade" id="quick-actions" role="tabpanel">
                         <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-4">
                             <h4 class="text-primary mb-0">Quick Load Profiles</h4>
                             <span class="badge bg-primary">Templates</span>

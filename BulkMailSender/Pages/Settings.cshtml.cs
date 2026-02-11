@@ -35,7 +35,7 @@ public class SettingsModel : PageModel
     [BindProperty]
     public string NewProfileName { get; set; } = string.Empty;
 
-    public string ActiveProfile { get; set; } = string.Empty;
+    public string CurrentProfileName { get; set; } = string.Empty;
     public List<ProfileOption> AvailableProfiles { get; set; } = new();
 
     public string? TestResult { get; set; }
@@ -53,8 +53,12 @@ public class SettingsModel : PageModel
     public async Task<IActionResult> OnPostUseDefaultAsync()
     {
         ModelState.Clear();
+        
+        await _settingsManager.SwitchProfileAsync("smtp-settings");
         CurrentSettings = _settingsManager.GetPreset("ProductionDefault");
-        TestResult = "Production settings loaded. Please review and click 'Apply Changes' to save.";
+        await _settingsManager.SaveSettingsAsync(CurrentSettings);
+
+        TestResult = "Production settings loaded and saved to 'smtp-settings' profile.";
         TestSuccess = true;
         await LoadPageDataAsync();
         return Page();
@@ -63,8 +67,12 @@ public class SettingsModel : PageModel
     public async Task<IActionResult> OnPostUsePaperCutAsync()
     {
         ModelState.Clear();
+        
+        await _settingsManager.SwitchProfileAsync("Debug");
         CurrentSettings = _settingsManager.GetPreset("Debug");
-        TestResult = "Debug/Local settings loaded. Please review and click 'Apply Changes' to save.";
+        await _settingsManager.SaveSettingsAsync(CurrentSettings);
+
+        TestResult = "Debug/Local settings loaded and saved to 'Debug' profile.";
         TestSuccess = true;
         await LoadPageDataAsync();
         return Page();
@@ -131,7 +139,7 @@ public class SettingsModel : PageModel
             
             // If the deleted profile was active, we might want to revert logic or just let Fallback handle it.
             // For UI feedback, let's clear the ActiveProfile if it matches?
-            if (string.Equals(ActiveProfile, selectedProfile, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(CurrentProfileName, selectedProfile, StringComparison.OrdinalIgnoreCase))
             {
                 // We could force switch to default or just let it stay as "Active" but empty.
                 // Switching to "smtp-settings" (Default) is safer.
@@ -193,7 +201,7 @@ public class SettingsModel : PageModel
         }
         
         HasSavedSettings = await _settingsManager.HasSavedSettingsAsync();
-        ActiveProfile = _settingsManager.CurrentProfileName;
+        CurrentProfileName = _settingsManager.GetActiveProfileName();
         
         var profileNames = _settingsManager.GetAvailableProfiles();
         AvailableProfiles = profileNames

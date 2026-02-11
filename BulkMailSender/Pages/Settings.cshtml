@@ -42,6 +42,11 @@
                                 }
                             </select>
                          </div>
+                         <button type="submit" asp-page-handler="DeleteProfile" class="btn btn-danger" 
+                                 onclick="return confirm('Are you sure you want to PERMANENTLY DELETE the selected profile?');"
+                                 title="Delete Selected Profile">
+                             <i class="bi bi-trash"></i>
+                         </button>
                     </form>
                  </div>
 

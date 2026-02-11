@@ -134,4 +134,12 @@ public class SettingsManager : ISettingsManager
     {
         return _storageService.ListProfiles();
     }
+
+    public Task DeleteProfileAsync(string profileName)
+    {
+        _storageService.DeleteProfileFile(profileName);
+        // If we deleted the current profile, we might want to reset session, 
+        // but the system handles missing files gracefully by falling back to defaults.
+        return Task.CompletedTask;
+    }
 }

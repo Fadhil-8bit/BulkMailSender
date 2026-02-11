@@ -164,4 +164,33 @@ public class SettingsStorageService
             return new List<string>();
         }
     }
+
+    /// <summary>
+    /// Deletes a specific profile file.
+    /// </summary>
+    public void DeleteProfileFile(string profileName)
+    {
+        var filePath = GetFilePath(profileName);
+        _fileLock.Wait();
+        try
+        {
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+                _logger.LogInformation("Deleted profile file: {FilePath}", filePath);
+            }
+            else
+            {
+                _logger.LogWarning("Cannot find profile file to delete: {FilePath}", filePath);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error occurred while deleting profile file: {FilePath}", filePath);
+        }
+        finally
+        {
+            _fileLock.Release();
+        }
+    }
 }

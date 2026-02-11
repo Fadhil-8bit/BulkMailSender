@@ -116,6 +116,27 @@ public class SettingsModel : PageModel
         return Page();
     }
 
+    public async Task<IActionResult> OnPostDeleteProfileAsync(string selectedProfile)
+    {
+        if (!string.IsNullOrWhiteSpace(selectedProfile))
+        {
+            await _settingsManager.DeleteProfileAsync(selectedProfile);
+            TestResult = $"Profile '{selectedProfile}' deleted.";
+            TestSuccess = true;
+            
+            // If the deleted profile was active, we might want to revert logic or just let Fallback handle it.
+            // For UI feedback, let's clear the ActiveProfile if it matches?
+            if (string.Equals(ActiveProfile, selectedProfile, StringComparison.OrdinalIgnoreCase))
+            {
+                // We could force switch to default or just let it stay as "Active" but empty.
+                // Switching to "smtp-settings" (Default) is safer.
+                 await _settingsManager.SwitchProfileAsync("smtp-settings");
+            }
+        }
+        
+        await LoadPageDataAsync();
+        return Page();
+    }
 
     public async Task<IActionResult> OnPostTestConnectionAsync()
     {

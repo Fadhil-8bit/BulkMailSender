@@ -49,4 +49,9 @@ public interface ISettingsManager
     /// Lists all available profiles.
     /// </summary>
     List<string> GetAvailableProfiles();
+
+    /// <summary>
+    /// Deletes the specified profile.
+    /// </summary>
+    Task DeleteProfileAsync(string profileName);
 }

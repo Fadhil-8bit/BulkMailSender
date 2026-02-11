@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.ComponentModel.DataAnnotations;
 using BulkMailSender.Models;
+using BulkMailSender.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -9,10 +10,12 @@ namespace BulkMailSender.Pages;
 public class TemplateModel : PageModel
 {
     private readonly ILogger<TemplateModel> _logger;
+    private readonly IEmailTemplateService _templateService;
 
-    public TemplateModel(ILogger<TemplateModel> logger)
+    public TemplateModel(ILogger<TemplateModel> logger, IEmailTemplateService templateService)
     {
         _logger = logger;
+        _templateService = templateService;
     }
 
     public bool HasUploadData { get; set; }
@@ -36,11 +39,25 @@ public class TemplateModel : PageModel
     public string? SubjectPreview { get; set; }
     public string? BodyPreview { get; set; }
 
+    [BindProperty]
+    public string EditSubject { get; set; } = string.Empty;
+
+    [BindProperty]
+    public string EditBody { get; set; } = string.Empty;
+
+    public Dictionary<string, string> RawTemplates { get; set; } = new();
+
     public void OnGet()
     {
         HasUploadData = !string.IsNullOrEmpty(HttpContext.Session.GetString("ExtractionPath"));
         LoadAvailableDebtorCodes();
         
+        // Load raw templates for customization
+        RawTemplates["SoaInv_Subject"] = _templateService.GetRawSubject(Models.TemplateType.SoaInv);
+        RawTemplates["SoaInv_Body"] = _templateService.GetRawBody(Models.TemplateType.SoaInv);
+        RawTemplates["Overdue_Subject"] = _templateService.GetRawSubject(Models.TemplateType.Overdue);
+        RawTemplates["Overdue_Body"] = _templateService.GetRawBody(Models.TemplateType.Overdue);
+
         // Check if there's a saved template and pre-populate fields
         var templateJson = HttpContext.Session.GetString("EmailTemplate");
         if (!string.IsNullOrEmpty(templateJson))
@@ -148,8 +165,8 @@ public class TemplateModel : PageModel
         var orgName = string.IsNullOrWhiteSpace(SelectedOrganizationName) ? "{organization name}" : SelectedOrganizationName;
         var notes = string.IsNullOrWhiteSpace(SelectedNotes) ? "{notes}" : SelectedNotes;
 
-        SubjectPreview = BuildSubject(TemplateType.Value, Period, DebtorCode, orgName);
-        BodyPreview = BuildBody(TemplateType.Value, notes);
+        SubjectPreview = _templateService.BuildSubject(TemplateType.Value, Period, DebtorCode, orgName);
+        BodyPreview = _templateService.BuildBody(TemplateType.Value, notes);
         
         _logger.LogInformation("Preview generated for debtor: {DebtorCode}, Type: {Type}, Period: {Period}", 
             DebtorCode, TemplateType, Period);
@@ -179,8 +196,8 @@ public class TemplateModel : PageModel
             DebtorCode = "{debtor code}",
             OrganizationName = "{organization name}",
             Notes = "{notes}",
-            Subject = BuildSubject(TemplateType.Value, Period, "{debtor code}", "{organization name}"),
-            Body = BuildBody(TemplateType.Value, "{notes}")
+            Subject = _templateService.BuildSubject(TemplateType.Value, Period, "{debtor code}", "{organization name}"),
+            Body = _templateService.BuildBody(TemplateType.Value, "{notes}")
         };
         
         HttpContext.Session.SetString("EmailTemplate", JsonSerializer.Serialize(template));
@@ -209,8 +226,8 @@ public class TemplateModel : PageModel
             DebtorCode = "{debtor code}",
             OrganizationName = "{organization name}",
             Notes = "{notes}",
-            Subject = BuildSubject(TemplateType.Value, Period, "{debtor code}", "{organization name}"),
-            Body = BuildBody(TemplateType.Value, "{notes}")
+            Subject = _templateService.BuildSubject(TemplateType.Value, Period, "{debtor code}", "{organization name}"),
+            Body = _templateService.BuildBody(TemplateType.Value, "{notes}")
         };
         
         try
@@ -223,8 +240,8 @@ public class TemplateModel : PageModel
              if (string.IsNullOrEmpty(SubjectPreview) && !string.IsNullOrEmpty(DebtorCode))
             {
                LoadSelectedDebtorInfo();
-               SubjectPreview = BuildSubject(TemplateType.Value, Period, DebtorCode, SelectedOrganizationName ?? "{org}");
-               BodyPreview = BuildBody(TemplateType.Value, SelectedNotes ?? "{notes}");
+               SubjectPreview = _templateService.BuildSubject(TemplateType.Value, Period, DebtorCode, SelectedOrganizationName ?? "{org}");
+               BodyPreview = _templateService.BuildBody(TemplateType.Value, SelectedNotes ?? "{notes}");
             }
         }
         catch (Exception ex)
@@ -240,6 +257,32 @@ public class TemplateModel : PageModel
         // The "Next" button goes to Review page.
         
         return Page();
+    }
+
+    public async Task<IActionResult> OnPostSaveCustomTemplateAsync()
+    {
+        if (!TemplateType.HasValue)
+        {
+             TempData["ErrorMessage"] = "Please select an Email Type first.";
+             return RedirectToPage();
+        }
+
+        if (string.IsNullOrWhiteSpace(EditSubject) || string.IsNullOrWhiteSpace(EditBody))
+        {
+            TempData["ErrorMessage"] = "Subject and Body cannot be empty.";
+            return RedirectToPage();
+        }
+
+        await _templateService.SaveUserTemplateAsync(TemplateType.Value, EditSubject, EditBody);
+        TempData["SuccessMessage"] = "Template customization saved successfully.";
+        return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostResetTemplateAsync()
+    {
+        await _templateService.ResetUserTemplateAsync();
+        TempData["SuccessMessage"] = "Templates reset to system defaults.";
+        return RedirectToPage();
     }
 
     private void LoadAvailableDebtorCodes()
@@ -277,35 +320,6 @@ public class TemplateModel : PageModel
         {
             SelectedOrganizationName = selected.OrganizationName;
             SelectedNotes = selected.Notes;
-        }
-    }
-
-    private static string BuildSubject(Models.TemplateType type, string? period, string debtorCode, string organization)
-    {
-        period = string.IsNullOrWhiteSpace(period) ? "<SET PERIOD>" : period.Trim();
-        debtorCode = string.IsNullOrWhiteSpace(debtorCode) ? "{debtor code}" : debtorCode.Trim();
-        organization = string.IsNullOrWhiteSpace(organization) ? "{organization name}" : organization.Trim();
-        if (type == Models.TemplateType.SoaInv)
-        {
-            return $"ATP INVOICE AND SOA {period} - {debtorCode} - {organization}";
-        }
-        else
-        {
-            return $"Reminder overdue account -{organization} - {debtorCode}";
-        }
-    }
-
-    private static string BuildBody(Models.TemplateType type, string? notes)
-    {
-        if (type == Models.TemplateType.SoaInv)
-        {
-            return "Good day to you\nThe attached statement reflects your account balance.\n\nPlease check the statement provided.\n\nIf you have any questions regarding this statement or any clarification needs, please contact the ATP Careline 018-7864855\n\nAny overdue payment may lead to service interruption.\n\nThe below are the bank details for your payment purpose:-\nCompany Name: ATP SALES & SERVICES SDN BHD\nBank Name: Affin Bank Bhd\nBank Account Number: 10675 0000 898\nEmail (Banking Slip): <atgroupoperation02@gmail.com>\n\n***************************************************************************\n\nThis is an auto-generated email, please DO NOT REPLY. Any replies to this\nemail will be disregarded.\n\n***************************************************************************";
-        }
-        else
-        {
-            var notesText = string.IsNullOrWhiteSpace(notes) ? "{notes}" : notes.Trim();
-            // notesText should be the term e.g. 60 DAYS/90Days; we keep as provided placeholder
-            return $"Good day to you\nKindly find the attached statement of account and invoice.\n\nAccording to our payment term with your company, your are requested to make the payment within {notesText} after you receive the monthly statement of account. Please clear and remit, if any. If you have made the payment, please let me know and I will update accordingly\n\nBearing in mind, as company policy\n\nATP shall be entitled, at its absolute discretion, to suspend Customer's account and hold service call until overdue outstanding has been fully paid.\n\nThank you\n\nPIC name: Ms. Ika\nEmail: atgroupoperation02@gmail.com\nDirect Line: 018-7864855";
         }
     }
 }

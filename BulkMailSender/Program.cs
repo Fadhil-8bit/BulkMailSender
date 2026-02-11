@@ -60,6 +60,7 @@ namespace BulkMailSender
             builder.Services.AddHttpContextAccessor();
             builder.Services.AddScoped<IZipExtractionService, ZipExtractionService>();
             builder.Services.AddSingleton<SettingsStorageService>();
+            builder.Services.AddSingleton<IEmailTemplateService, EmailTemplateService>();
             builder.Services.AddSingleton<ISettingsManager, SettingsManager>();
             builder.Services.AddTransient<IEmailService, EmailService>();
             

@@ -37,7 +37,10 @@
                 <div class="col-md-3">
                     <div class="card border-success">
                         <div class="card-body text-center">
-                            <h3 class="text-success mb-0">@Model.Results.Sent.Count</h3>
+                            <h3 class="text-success mb-0">
+                                <span id="sent-count">@Model.Results.Sent.Count</span>
+                                <span class="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true" id="sent-spinner"></span>
+                            </h3>
                             <p class="text-muted mb-0"><i class="bi bi-check-circle"></i> Sent Successfully</p>
                         </div>
                     </div>
@@ -45,7 +48,10 @@
                 <div class="col-md-3">
                     <div class="card border-danger">
                         <div class="card-body text-center">
-                            <h3 class="text-danger mb-0">@Model.Results.Failed.Count</h3>
+                            <h3 class="text-danger mb-0">
+                                <span id="failed-count">@Model.Results.Failed.Count</span>
+                                <span class="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true" id="failed-spinner"></span>
+                            </h3>
                             <p class="text-muted mb-0"><i class="bi bi-x-circle"></i> Failed</p>
                         </div>
                     </div>
@@ -61,7 +67,10 @@
                 <div class="col-md-3">
                     <div class="card border-info">
                         <div class="card-body text-center">
-                            <h3 class="text-info mb-0">@(Model.Results.Sent.Count + Model.Results.Failed.Count + Model.Results.Skipped.Count)</h3>
+                            <h3 class="text-info mb-0">
+                                <span id="total-count">@(Model.Results.Sent.Count + Model.Results.Failed.Count + Model.Results.Skipped.Count)</span>
+                                <span class="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true" id="total-spinner"></span>
+                            </h3>
                             <p class="text-muted mb-0"><i class="bi bi-envelope"></i> Total Processed</p>
                         </div>
                     </div>
@@ -224,3 +233,53 @@
         }
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            let isFirstCheck = true;
+            let pollInterval;
+
+            function updateStatus() {
+                fetch('?handler=JobStatus')
+                    .then(response => response.json())
+                    .then(data => {
+                        const sentCount = document.getElementById("sent-count");
+                        const failedCount = document.getElementById("failed-count");
+                        const totalCount = document.getElementById("total-count");
+
+                        if (sentCount) sentCount.innerText = data.sentCount;
+                        if (failedCount) failedCount.innerText = data.failedCount;
+                        if (totalCount) totalCount.innerText = data.total;
+
+                        if (data.isCompleted) {
+                            if (pollInterval) clearInterval(pollInterval);
+                            
+                            if (!isFirstCheck) {
+                                // Reload to ensure table is fully up to date with server-side rendered data
+                                location.reload();
+                            }
+                        }
+                        
+                        // Hide spinners on first success
+                        if (isFirstCheck) {
+                            const ids = ['sent-spinner', 'failed-spinner', 'total-spinner'];
+                            ids.forEach(id => {
+                                const el = document.getElementById(id);
+                                if (el) el.style.display = 'none';
+                            });
+                        }
+                        
+                        isFirstCheck = false;
+                    })
+                    .catch(error => console.error('Error fetching status:', error));
+            }
+
+            // Update every 3 seconds
+            pollInterval = setInterval(updateStatus, 3000);
+            
+            // Initial call
+            updateStatus();
+        });
+    </script>
+}

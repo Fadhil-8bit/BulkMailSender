@@ -36,7 +36,7 @@ public class SendResultsModel : PageModel
                     {
                         Results = job.Results;
                         
-                        // Also save to session for backward compatibility
+                        // Persistent fallback: save to session in case service clears it
                         HttpContext.Session.SetString("SendResults", JsonSerializer.Serialize(Results));
                         return;
                     }
@@ -52,6 +52,47 @@ public class SendResultsModel : PageModel
             try { Results = JsonSerializer.Deserialize<SendSummary>(json); }
             catch { }
         }
+    }
+
+    public IActionResult OnGetJobStatus()
+    {
+        OnGet();
+
+        bool isCompleted = true;
+        string status = "Completed";
+
+        var jobIdJson = HttpContext.Session.GetString("CurrentJobId");
+        if (!string.IsNullOrEmpty(jobIdJson))
+        {
+            try
+            {
+                var jobId = JsonSerializer.Deserialize<string>(jobIdJson);
+                if (!string.IsNullOrEmpty(jobId))
+                {
+                     var job = _queueService.GetJob(jobId);
+                     if (job != null)
+                     {
+                         status = job.Status.ToString();
+                         isCompleted = (job.Status == JobStatus.Completed || job.Status == JobStatus.Failed || job.Status == JobStatus.Cancelled);
+                     }
+                }
+            }
+            catch {}
+        }
+
+        if (Results == null)
+        {
+             return new JsonResult(new { sentCount = 0, failedCount = 0, total = 0, status, isCompleted });
+        }
+
+        return new JsonResult(new 
+        { 
+            sentCount = Results.Sent.Count, 
+            failedCount = Results.Failed.Count, 
+            total = Results.Sent.Count + Results.Failed.Count + Results.Skipped.Count,
+            status,
+            isCompleted
+        });
     }
 
     public IActionResult OnPostDownloadFailed()
@@ -71,7 +112,9 @@ public class SendResultsModel : PageModel
 
         foreach (var failed in Results.Failed)
         {
-            csv.AppendLine($"\"{failed.DebtorCode}\",\"{failed.Reason.Replace("\"", "\"\"")}\",{failed.RetryCount},\"{failed.Timestamp:yyyy-MM-dd HH:mm:ss}\"");
+            var debtor = failed.DebtorCode?.Replace("\"", "\"\"") ?? "";
+            var reason = failed.Reason?.Replace("\"", "\"\"") ?? "";
+            csv.AppendLine($"\"{debtor}\",\"{reason}\",{failed.RetryCount},\"{failed.Timestamp:yyyy-MM-dd HH:mm:ss}\"");
         }
 
         var bytes = Encoding.UTF8.GetBytes(csv.ToString());
@@ -98,11 +141,11 @@ public class SendResultsModel : PageModel
         var uploadResultJson = HttpContext.Session.GetString("UploadResult");
         var templateJson = HttpContext.Session.GetString("EmailTemplate");
         var smtpJson = HttpContext.Session.GetString("SmtpSettings");
-
+        
         if (string.IsNullOrEmpty(recipientsJson) || string.IsNullOrEmpty(uploadResultJson) || string.IsNullOrEmpty(templateJson))
         {
-            TempData["ErrorMessage"] = "Original send data not found in session. Please start a new send.";
-            return RedirectToPage("/SendResults");
+             TempData["ErrorMessage"] = "Cannot retry. Original session data missing.";
+             return RedirectToPage("/SendResults");
         }
 
         try
@@ -138,6 +181,9 @@ public class SendResultsModel : PageModel
 
             var jobId = _queueService.EnqueueJob(retryJob);
             HttpContext.Session.SetString("CurrentJobId", JsonSerializer.Serialize(jobId));
+
+            // Reset session results immediately so UI polling sees zero/fresh state
+            HttpContext.Session.SetString("SendResults", JsonSerializer.Serialize(retryJob.Results));
 
             _logger.LogInformation("Retry job {JobId} created for {Count} failed debtor codes", jobId, failedDebtorCodes.Count);
 

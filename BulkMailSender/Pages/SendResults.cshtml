@@ -120,82 +120,8 @@
                                     <th style="width: 5%;">Retries</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                @{
-                                    int rowNum = 1;
-                                    var allResults = Model.Results.Sent
-                                        .Select(r => new { Result = r, Type = "Sent" })
-                                        .Concat(Model.Results.Failed.Select(r => new { Result = r, Type = "Failed" }))
-                                        .Concat(Model.Results.Skipped.Select(r => new { Result = r, Type = "Skipped" }))
-                                        .OrderBy(r => r.Result.Timestamp)
-                                        .ToList();
-                                }
-
-                                @foreach (var item in allResults)
-                                {
-                                    var rowClass = item.Type == "Sent" ? "result-row-success" 
-                                                  : item.Type == "Failed" ? "result-row-failed" 
-                                                  : "result-row-skipped";
-                                    <tr class="@rowClass">
-                                        <td>@rowNum</td>
-                                        <td><strong>@item.Result.DebtorCode</strong></td>
-                                        <td>
-                                            @if (item.Type == "Sent")
-                                            {
-                                                <span class="badge bg-success"><i class="bi bi-check-circle"></i> Sent</span>
-                                            }
-                                            else if (item.Type == "Failed")
-                                            {
-                                                <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Failed</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="badge bg-warning text-dark"><i class="bi bi-skip-forward"></i> Skipped</span>
-                                            }
-                                        </td>
-                                        <td>
-                                            @if (item.Result.To.Any())
-                                            {
-                                                <small>
-                                                    @foreach (var email in item.Result.To.Take(2))
-                                                    {
-                                                        <div><i class="bi bi-envelope"></i> @email</div>
-                                                    }
-                                                    @if (item.Result.To.Count > 2)
-                                                    {
-                                                        <div class="text-muted">+ @(item.Result.To.Count - 2) more</div>
-                                                    }
-                                                </small>
-                                            }
-                                            else
-                                            {
-                                                <span class="text-muted">-</span>
-                                            }
-                                        </td>
-                                        <td>
-                                            @if (!string.IsNullOrEmpty(item.Result.Message))
-                                            {
-                                                <small>@item.Result.Message</small>
-                                            }
-                                            @if (!string.IsNullOrEmpty(item.Result.Reason))
-                                            {
-                                                <small class="text-danger">@item.Result.Reason</small>
-                                            }
-                                        </td>
-                                        <td><small class="text-muted">@item.Result.Timestamp.ToLocalTime().ToString("HH:mm:ss")</small></td>
-                                        <td>
-                                            @if (item.Result.RetryCount > 0)
-                                            {
-                                                <span class="badge badge-retry bg-secondary">@item.Result.RetryCount</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="text-muted">-</span>
-                                            }
-                                        </td>
-                                    </tr>
-                                    rowNum++;
-                                }
+                            <tbody id="results-table-body">
+                                <partial name="_SendResultsTableRows" model="Model.Results" />
                             </tbody>
                         </table>
                     </div>
@@ -239,6 +165,18 @@
         document.addEventListener("DOMContentLoaded", function() {
             let isFirstCheck = true;
             let pollInterval;
+            let lastSent = -1;
+            let lastFailed = -1;
+
+            function updateTable() {
+                 fetch('?handler=ResultsPartial')
+                    .then(response => response.text())
+                    .then(html => {
+                        const tbody = document.getElementById('results-table-body');
+                        if (tbody) tbody.innerHTML = html;
+                    })
+                    .catch(error => console.error('Error fetching table partial:', error));
+            }
 
             function updateStatus() {
                 fetch('?handler=JobStatus')
@@ -248,26 +186,33 @@
                         const failedCount = document.getElementById("failed-count");
                         const totalCount = document.getElementById("total-count");
 
+                        // Check for changes before updating DOM
+                        const newSent = data.sentCount;
+                        const newFailed = data.failedCount;
+
+                        if (lastSent !== -1 && (newSent !== lastSent || newFailed !== lastFailed)) {
+                            updateTable();
+                        }
+                        
+                        lastSent = newSent;
+                        lastFailed = newFailed;
+
                         if (sentCount) sentCount.innerText = data.sentCount;
                         if (failedCount) failedCount.innerText = data.failedCount;
                         if (totalCount) totalCount.innerText = data.total;
 
                         if (data.isCompleted) {
                             if (pollInterval) clearInterval(pollInterval);
-                            
-                            if (!isFirstCheck) {
-                                // Reload to ensure table is fully up to date with server-side rendered data
-                                location.reload();
-                            }
+                            updateTable(); // Final update
                         }
                         
-                        // Hide spinners on first success
                         if (isFirstCheck) {
                             const ids = ['sent-spinner', 'failed-spinner', 'total-spinner'];
                             ids.forEach(id => {
                                 const el = document.getElementById(id);
                                 if (el) el.style.display = 'none';
                             });
+                             updateTable(); // Initial load
                         }
                         
                         isFirstCheck = false;

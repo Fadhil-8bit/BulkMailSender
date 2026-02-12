@@ -197,4 +197,10 @@ public class SendResultsModel : PageModel
             return RedirectToPage("/SendResults");
         }
     }
+
+    public PartialViewResult OnGetResultsPartial()
+    {
+        OnGet();
+        return Partial("_SendResultsTableRows", Results ?? new SendSummary());
+    }
 }

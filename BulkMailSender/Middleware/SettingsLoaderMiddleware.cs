@@ -21,36 +21,37 @@ public class SettingsLoaderMiddleware
 
     public async Task InvokeAsync(HttpContext context, SettingsStorageService settingsStorage, IOptions<EmailPresets> presets)
     {
-        // Check if session already has settings
-        var sessionSettings = context.Session.GetString("SmtpSettings");
-        
-        if (string.IsNullOrEmpty(sessionSettings))
+        // 1. Sync Active Profile Name from disk to ensure we're using the latest selection
+        // This handles cases where the profile was switched in another tab or stored state
+        var activeProfileFromDisk = await settingsStorage.LoadActiveProfileNameAsync();
+        var currentProfile = !string.IsNullOrEmpty(activeProfileFromDisk) ? activeProfileFromDisk : "smtp-settings";
+
+        // Update session to match disk state
+        context.Session.SetString("CurrentProfileName", currentProfile);
+
+        // 2. FORCE LOAD from persistent storage every time (to support real-time updates)
+        var persistedSettings = await settingsStorage.LoadSettingsAsync(currentProfile);
+
+        if (persistedSettings != null)
         {
-            // Try to load from persistent storage
-            var persistedSettings = await settingsStorage.LoadSettingsAsync();
-            
-            if (persistedSettings != null)
+            var json = JsonSerializer.Serialize(persistedSettings);
+            context.Session.SetString("SmtpSettings", json);
+            // Logging at Debug level to avoid spamming logs on every request
+            _logger.LogDebug("Loaded SMTP settings from storage (Profile: {Profile})", currentProfile);
+        }
+        else
+        {
+            // Fallback: unified appsettings.json (ProductionDefault)
+            var defaultSettings = presets.Value.ProductionDefault;
+            if (defaultSettings != null)
             {
-                // Save to session for this and future requests
-                var json = JsonSerializer.Serialize(persistedSettings);
+                var json = JsonSerializer.Serialize(defaultSettings);
                 context.Session.SetString("SmtpSettings", json);
-                
-                _logger.LogInformation("Auto-loaded SMTP settings from persistent storage into session");
+                _logger.LogDebug("Loaded default 'ProductionDefault' into session.");
             }
             else
             {
-                // Fallback: unified appsettings.json (ProductionDefault)
-                var defaultSettings = presets.Value.ProductionDefault;
-                if (defaultSettings != null)
-                {
-                    var json = JsonSerializer.Serialize(defaultSettings);
-                    context.Session.SetString("SmtpSettings", json);
-                    _logger.LogInformation("No persisted settings found. Loaded default 'ProductionDefault' from appsettings.json into session.");
-                }
-                else
-                {
-                    _logger.LogWarning("No persisted settings and no 'ProductionDefault' preset found.");
-                }
+                _logger.LogWarning("No persisted settings and no 'ProductionDefault' preset found.");
             }
         }
 

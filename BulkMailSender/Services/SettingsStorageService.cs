@@ -119,34 +119,6 @@ public class SettingsStorageService
     }
 
     /// <summary>
-    /// Delete saved settings file for a specific profile
-    /// </summary>
-    public async Task<bool> DeleteSettingsAsync(string profileName = DefaultProfileName)
-    {
-        var filePath = GetFilePath(profileName);
-        await _fileLock.WaitAsync();
-        try
-        {
-            if (File.Exists(filePath))
-            {
-                File.Delete(filePath);
-                _logger.LogInformation("Saved settings deleted from {FilePath}", filePath);
-                return true;
-            }
-            return false;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to delete saved settings {FilePath}", filePath);
-            return false;
-        }
-        finally
-        {
-            _fileLock.Release();
-        }
-    }
-
-    /// <summary>
     /// List all available profiles
     /// </summary>
     public List<string> ListProfiles()
@@ -187,6 +159,55 @@ public class SettingsStorageService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error occurred while deleting profile file: {FilePath}", filePath);
+        }
+        finally
+        {
+            _fileLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Save the name of the currently active profile to a metadata file.
+    /// </summary>
+    public async Task SaveActiveProfileNameAsync(string profileName)
+    {
+        var path = Path.Combine(_settingsDirectory, "active_profile.meta");
+        await _fileLock.WaitAsync();
+        try
+        {
+            await File.WriteAllTextAsync(path, profileName);
+            _logger.LogInformation("Active profile name '{ProfileName}' persisted to metadata.", profileName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save active profile metadata.");
+        }
+        finally
+        {
+            _fileLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Load the name of the currently active profile from metadata file.
+    /// </summary>
+    public async Task<string?> LoadActiveProfileNameAsync()
+    {
+        var path = Path.Combine(_settingsDirectory, "active_profile.meta");
+        await _fileLock.WaitAsync();
+        try
+        {
+            if (File.Exists(path))
+            {
+                var name = await File.ReadAllTextAsync(path);
+                return string.IsNullOrWhiteSpace(name) ? null : name.Trim();
+            }
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load active profile metadata.");
+            return null;
         }
         finally
         {

@@ -80,7 +80,9 @@ public class SettingsModel : PageModel
 
     public async Task<IActionResult> OnPostSaveAsync()
     {
-        await SaveToStorageAndSessionAsync();
+        // Save settings using the CurrentProfileName (handled internally by SettingsManager)
+        await _settingsManager.SaveSettingsAsync(CurrentSettings);
+        
         TestResult = " Settings saved successfully! They will persist across restarts.";
         TestSuccess = true;
         await LoadPageDataAsync();
@@ -101,7 +103,7 @@ public class SettingsModel : PageModel
         await _settingsManager.SwitchProfileAsync(NewProfileName);
         
         // Save current form settings to this new profile
-        await SaveToStorageAndSessionAsync();
+        await _settingsManager.SaveSettingsAsync(CurrentSettings);
 
         TestResult = $"Profile '{NewProfileName}' created and saved successfully.";
         TestSuccess = true;
@@ -117,7 +119,9 @@ public class SettingsModel : PageModel
     {
         if (!string.IsNullOrWhiteSpace(selectedProfile))
         {
+            // Update active profile name
             await _settingsManager.SwitchProfileAsync(selectedProfile);
+
             // Reload settings from the new profile
             CurrentSettings = await _settingsManager.GetActiveSettingsAsync();
             
@@ -159,7 +163,7 @@ public class SettingsModel : PageModel
 
             TestResult = $" SUCCESS! Test email sent to {CurrentSettings.FromEmail}. Check your inbox.";
             TestSuccess = true;
-            await SaveToStorageAndSessionAsync();
+            await _settingsManager.SaveSettingsAsync(CurrentSettings);
         }
         catch (Exception ex)
         {
@@ -172,27 +176,6 @@ public class SettingsModel : PageModel
         return Page();
     }
 
-    public async Task<IActionResult> OnPostClearSettingsAsync()
-    {
-        await _settingsManager.ClearSettingsAsync();
-        
-        // Reload default (active)
-        CurrentSettings = await _settingsManager.GetActiveSettingsAsync();
-        
-        // Ensure session is updated with defaults
-        await _settingsManager.UpdateSessionAsync(CurrentSettings);
-        
-        TestResult = "Saved settings cleared. Reverted to defaults.";
-        TestSuccess = false;
-        await LoadPageDataAsync();
-        return Page();
-    }
-
-    private async Task SaveToStorageAndSessionAsync()
-    {
-        await _settingsManager.SaveSettingsAsync(CurrentSettings);
-    }
-    
     private async Task LoadPageDataAsync()
     {
         if (CurrentSettings == null || string.IsNullOrEmpty(CurrentSettings.Host))

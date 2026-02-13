@@ -66,20 +66,6 @@ public class SettingsManager : ISettingsManager
         _logger.LogInformation("Settings saved to persistent storage (Profile: {Profile}) and session updated.", CurrentProfileName);
     }
 
-    public async Task ClearSettingsAsync()
-    {
-        await _storageService.DeleteSettingsAsync(CurrentProfileName);
-        
-        // Remove from session
-        var session = _httpContextAccessor.HttpContext?.Session;
-        if (session != null)
-        {
-            session.Remove("SmtpSettings");
-        }
-
-        _logger.LogInformation("Settings cleared from persistent storage (Profile: {Profile}) and session.", CurrentProfileName);
-    }
-
     public EmailSettings GetPreset(string presetName)
     {
         EmailSettings? source = null;
@@ -125,12 +111,15 @@ public class SettingsManager : ISettingsManager
     {
         if (string.IsNullOrWhiteSpace(profileName)) return;
 
+        // Persist active profile choice to disk
+        await _storageService.SaveActiveProfileNameAsync(profileName);
+
         var session = _httpContextAccessor.HttpContext?.Session;
         if (session != null)
         {
             session.SetString(DefaultProfileKey, profileName);
             _logger.LogInformation("Switched to profile: {Profile}", profileName);
-            
+
             // Reload settings for new profile
             var settings = await GetActiveSettingsAsync();
             await UpdateSessionAsync(settings);

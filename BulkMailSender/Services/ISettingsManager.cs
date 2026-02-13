@@ -16,11 +16,6 @@ public interface ISettingsManager
     Task SaveSettingsAsync(EmailSettings settings);
 
     /// <summary>
-    /// Clears any saved settings from persistent storage.
-    /// </summary>
-    Task ClearSettingsAsync();
-
-    /// <summary>
     /// Gets a specific preset configuration by name (e.g., "Debug", "ProductionDefault").
     /// </summary>
     EmailSettings GetPreset(string presetName);

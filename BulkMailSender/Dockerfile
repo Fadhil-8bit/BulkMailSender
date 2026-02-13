@@ -13,18 +13,16 @@ ENV ASPNETCORE_Kestrel__Limits__KeepAliveTimeout=00:10:00
 
 # This stage is used to build the service project
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
-ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["BulkMailSender/BulkMailSender.csproj", "BulkMailSender/"]
 RUN dotnet restore "./BulkMailSender/BulkMailSender.csproj"
 COPY . .
 WORKDIR "/src/BulkMailSender"
-RUN dotnet build "./BulkMailSender.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet build "./BulkMailSender.csproj" -c Release -o /app/build
 
 # This stage is used to publish the service project to be copied to the final stage
 FROM build AS publish
-ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./BulkMailSender.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "./BulkMailSender.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 # This stage is used in production or when running from VS in regular mode (Default when not using the Debug configuration)
 FROM base AS final

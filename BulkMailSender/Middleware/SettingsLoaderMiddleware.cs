@@ -1,4 +1,6 @@
 using BulkMailSender.Services;
+using BulkMailSender.Models;
+using Microsoft.Extensions.Options;
 using System.Text.Json;
 
 namespace BulkMailSender.Middleware;
@@ -17,7 +19,7 @@ public class SettingsLoaderMiddleware
         _logger = logger;
     }
 
-    public async Task InvokeAsync(HttpContext context, SettingsStorageService settingsStorage)
+    public async Task InvokeAsync(HttpContext context, SettingsStorageService settingsStorage, IOptions<EmailPresets> presets)
     {
         // Check if session already has settings
         var sessionSettings = context.Session.GetString("SmtpSettings");
@@ -37,7 +39,18 @@ public class SettingsLoaderMiddleware
             }
             else
             {
-                _logger.LogInformation("No persisted settings found - will use defaults when needed");
+                // Fallback: unified appsettings.json (ProductionDefault)
+                var defaultSettings = presets.Value.ProductionDefault;
+                if (defaultSettings != null)
+                {
+                    var json = JsonSerializer.Serialize(defaultSettings);
+                    context.Session.SetString("SmtpSettings", json);
+                    _logger.LogInformation("No persisted settings found. Loaded default 'ProductionDefault' from appsettings.json into session.");
+                }
+                else
+                {
+                    _logger.LogWarning("No persisted settings and no 'ProductionDefault' preset found.");
+                }
             }
         }
 

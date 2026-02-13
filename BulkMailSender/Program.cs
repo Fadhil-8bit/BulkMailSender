@@ -72,17 +72,20 @@ namespace BulkMailSender
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
-            if (!app.Environment.IsDevelopment())
+            // Check for DetailedErrors setting (default to false if not present)
+            var showDetailedErrors = app.Configuration.GetValue<bool>("DetailedErrors");
+
+            if (showDetailedErrors || app.Environment.IsDevelopment())
             {
-                app.UseExceptionHandler("/Error");
-                app.UseHsts();
-                app.UseHttpsRedirection();
+                app.UseDeveloperExceptionPage();
             }
             else
             {
-                // In development, make HTTPS optional
-                app.UseDeveloperExceptionPage();
+                app.UseExceptionHandler("/Error");
             }
+            // Removed UseHsts() and UseHttpsRedirection() for internal HTTP-only usage
+
+            app.UseStaticFiles();
 
             app.UseRouting();
 

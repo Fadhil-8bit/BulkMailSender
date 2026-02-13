@@ -2,13 +2,10 @@
 
 # This stage is used when running from VS in fast mode (Default for Debug configuration)
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
-# Run as root to avoid permission issues with large file uploads
-USER root
 WORKDIR /app
 EXPOSE 8080
 
 # Set environment variables for large file uploads and HTTP-only mode
-ENV ASPNETCORE_ENVIRONMENT=Development
 ENV ASPNETCORE_URLS=http://+:8080
 ENV ASPNETCORE_Kestrel__Limits__MaxRequestBodySize=524288000
 ENV ASPNETCORE_Kestrel__Limits__KeepAliveTimeout=00:10:00
@@ -34,7 +31,9 @@ FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 
-# Create uploads directory with proper permissions
-RUN mkdir -p /app/wwwroot/uploads && chmod 777 /app/wwwroot/uploads
+# Create uploads directory with proper permissions and switch to app user
+USER root
+RUN mkdir -p /app/wwwroot/uploads && chown -R app:app /app/wwwroot/uploads
+USER app
 
 ENTRYPOINT ["dotnet", "BulkMailSender.dll"]

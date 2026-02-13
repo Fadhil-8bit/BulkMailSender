@@ -16,8 +16,8 @@ public class SettingsStorageService
     public SettingsStorageService(IWebHostEnvironment env, ILogger<SettingsStorageService> logger)
     {
         _logger = logger;
-        // Store settings in App_Data/Settings folder
-        var appDataPath = Path.Combine(env.ContentRootPath, "App_Data");
+        // Store settings in App_Data/Settings folder relative to running binaries
+        var appDataPath = Path.Combine(AppContext.BaseDirectory, "App_Data");
         _settingsDirectory = Path.Combine(appDataPath, "Settings");
         Directory.CreateDirectory(_settingsDirectory);
 
@@ -167,20 +167,20 @@ public class SettingsStorageService
     }
 
     /// <summary>
-    /// Save the name of the currently active profile to a metadata file.
+    /// Save the name of the currently active profile to a file named active_profile.txt within the _settingsDirectory.
     /// </summary>
     public async Task SaveActiveProfileNameAsync(string profileName)
     {
-        var path = Path.Combine(_settingsDirectory, "active_profile.meta");
+        var filePath = Path.Combine(_settingsDirectory, "active_profile.txt");
         await _fileLock.WaitAsync();
         try
         {
-            await File.WriteAllTextAsync(path, profileName);
-            _logger.LogInformation("Active profile name '{ProfileName}' persisted to metadata.", profileName);
+            await File.WriteAllTextAsync(filePath, profileName);
+            _logger.LogInformation("Saved active profile name '{ProfileName}' to {FilePath}", profileName, filePath);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save active profile metadata.");
+            _logger.LogError(ex, "Failed to save active profile name to {FilePath}", filePath);
         }
         finally
         {
@@ -189,25 +189,28 @@ public class SettingsStorageService
     }
 
     /// <summary>
-    /// Load the name of the currently active profile from metadata file.
+    ///  Read that file and return its content, defaulting to 'smtp-settings' if the file doesn't exist.
     /// </summary>
-    public async Task<string?> LoadActiveProfileNameAsync()
+    public async Task<string> GetSavedActiveProfileNameAsync()
     {
-        var path = Path.Combine(_settingsDirectory, "active_profile.meta");
+        var filePath = Path.Combine(_settingsDirectory, "active_profile.txt");
         await _fileLock.WaitAsync();
         try
         {
-            if (File.Exists(path))
+            if (File.Exists(filePath))
             {
-                var name = await File.ReadAllTextAsync(path);
-                return string.IsNullOrWhiteSpace(name) ? null : name.Trim();
+                var content = await File.ReadAllTextAsync(filePath);
+                if (!string.IsNullOrWhiteSpace(content))
+                {
+                    return content.Trim();
+                }
             }
-            return null;
+            return DefaultProfileName;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load active profile metadata.");
-            return null;
+            _logger.LogError(ex, "Failed to read active profile name from {FilePath}", filePath);
+            return DefaultProfileName;
         }
         finally
         {

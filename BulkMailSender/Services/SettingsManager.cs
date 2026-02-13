@@ -111,13 +111,14 @@ public class SettingsManager : ISettingsManager
     {
         if (string.IsNullOrWhiteSpace(profileName)) return;
 
-        // Persist active profile choice to disk
-        await _storageService.SaveActiveProfileNameAsync(profileName);
-
         var session = _httpContextAccessor.HttpContext?.Session;
         if (session != null)
         {
             session.SetString(DefaultProfileKey, profileName);
+
+            // Persist active profile choice to disk
+            await _storageService.SaveActiveProfileNameAsync(profileName);
+
             _logger.LogInformation("Switched to profile: {Profile}", profileName);
 
             // Reload settings for new profile

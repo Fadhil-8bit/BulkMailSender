@@ -30,8 +30,12 @@ WORKDIR /app
 COPY --from=publish /app/publish .
 
 # Create uploads directory with proper permissions and switch to app user
+# Create necessary directories with proper permissions for the app user
 USER root
-RUN mkdir -p /app/wwwroot/uploads && chown -R app:app /app/wwwroot/uploads
+RUN mkdir -p /app/wwwroot/uploads \
+             /app/App_Data/Settings && \
+    chown -R app:app /app/wwwroot/uploads /app/App_Data && \
+    chmod -R 777 /app/App_Data
 USER app
 
 ENTRYPOINT ["dotnet", "BulkMailSender.dll"]

@@ -23,8 +23,7 @@ public class SettingsLoaderMiddleware
     {
         // 1. Sync Active Profile Name from disk to ensure we're using the latest selection
         // This handles cases where the profile was switched in another tab or stored state
-        var activeProfileFromDisk = await settingsStorage.LoadActiveProfileNameAsync();
-        var currentProfile = !string.IsNullOrEmpty(activeProfileFromDisk) ? activeProfileFromDisk : "smtp-settings";
+        var currentProfile = await settingsStorage.GetSavedActiveProfileNameAsync();
 
         // Update session to match disk state
         context.Session.SetString("CurrentProfileName", currentProfile);

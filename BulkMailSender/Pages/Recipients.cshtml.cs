@@ -120,6 +120,16 @@ public class RecipientsModel : PageModel
 
         try
         {
+            // Clear previous data fields and session to prevent ghost data
+            Recipients.Clear();
+            Errors.Clear();
+            ParseErrors.Clear();
+            InvalidDebtorCodes.Clear();
+
+            HttpContext.Session.Remove("Recipients");
+            HttpContext.Session.Remove("ParseErrors");
+            HttpContext.Session.Remove("InvalidDebtorCodes");
+
             using var stream = RecipientsFile.OpenReadStream();
             using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
 
@@ -165,10 +175,8 @@ public class RecipientsModel : PageModel
             // debtor code regex: uppercase letters/digits only on both sides of a single hyphen
             var debtorStyleRegex = new Regex("^[A-Z0-9]+-[A-Z0-9]+$", RegexOptions.Compiled);
 
-            while (!reader.EndOfStream)
+            while (await reader.ReadLineAsync() is { } line)
             {
-                var line = await reader.ReadLineAsync();
-                if (line == null) break;
                 if (string.IsNullOrWhiteSpace(line)) continue;
 
                 totalRows++;

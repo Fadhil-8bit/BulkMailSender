@@ -95,7 +95,7 @@
             }
             else if (showSummary)
             {
-                validDebtors = Model.Recipients.Select(r => r.DebtorCode).Distinct().Count();
+                validDebtors = Model.Recipients?.Select(r => r.DebtorCode).Distinct().Count() ?? 0;
                 invalidCount = (Model.InvalidDebtorCodes?.Count ?? 0);
                 totalDebtors = validDebtors + invalidCount;
             }
@@ -138,7 +138,7 @@
             </div>
         }
 
-        @if (Model.InvalidDebtorCodes.Any() || Model.Errors.Any())
+        @if ((Model.InvalidDebtorCodes?.Any() ?? false) || (Model.Errors?.Any() ?? false))
         {
             <div class="alert alert-danger mt-4 d-flex align-items-center justify-content-between">
                 <div>
@@ -224,7 +224,7 @@
                     </div>
                 }
 
-                @if (Model.Recipients.Any())
+                @if (Model.Recipients?.Any() ?? false)
                 {
                     var grouped = Model.Recipients
                         .GroupBy(r => r.DebtorCode)

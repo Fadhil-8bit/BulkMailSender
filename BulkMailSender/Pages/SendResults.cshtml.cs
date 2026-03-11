@@ -19,6 +19,10 @@ public class SendResultsModel : PageModel
     }
 
     public SendSummary? Results { get; set; }
+    public string CurrentJobStatus { get; set; } = "Unknown";
+    public bool IsJobActive { get; set; }
+    public int TotalJobEmails { get; set; }
+    public int ProcessedCount { get; set; }
 
     public void OnGet()
     {
@@ -35,7 +39,11 @@ public class SendResultsModel : PageModel
                     if (job != null)
                     {
                         Results = job.Results;
-                        
+                        CurrentJobStatus = job.Status.ToString();
+                        IsJobActive = (job.Status == JobStatus.Queued || job.Status == JobStatus.Running);
+                        TotalJobEmails = job.TotalEmails;
+                        ProcessedCount = job.SentCount + job.FailedCount + job.SkippedCount;
+
                         // Persistent fallback: save to session in case service clears it
                         HttpContext.Session.SetString("SendResults", JsonSerializer.Serialize(Results));
                         return;
@@ -60,6 +68,8 @@ public class SendResultsModel : PageModel
 
         bool isCompleted = true;
         string status = "Completed";
+        int totalJobEmails = 0;
+        int processedCount = 0;
 
         var jobIdJson = HttpContext.Session.GetString("CurrentJobId");
         if (!string.IsNullOrEmpty(jobIdJson))
@@ -74,6 +84,8 @@ public class SendResultsModel : PageModel
                      {
                          status = job.Status.ToString();
                          isCompleted = (job.Status == JobStatus.Completed || job.Status == JobStatus.Failed || job.Status == JobStatus.Cancelled);
+                         totalJobEmails = job.TotalEmails;
+                         processedCount = job.SentCount + job.FailedCount + job.SkippedCount;
                      }
                 }
             }
@@ -82,7 +94,7 @@ public class SendResultsModel : PageModel
 
         if (Results == null)
         {
-             return new JsonResult(new { sentCount = 0, failedCount = 0, total = 0, status, isCompleted });
+             return new JsonResult(new { sentCount = 0, failedCount = 0, total = 0, status, isCompleted, totalJobEmails, processedCount });
         }
 
         return new JsonResult(new 
@@ -91,8 +103,31 @@ public class SendResultsModel : PageModel
             failedCount = Results.Failed.Count, 
             total = Results.Sent.Count + Results.Failed.Count + Results.Skipped.Count,
             status,
-            isCompleted
+            isCompleted,
+            totalJobEmails,
+            processedCount
         });
+    }
+
+    public IActionResult OnPostCancelJob()
+    {
+        var jobIdJson = HttpContext.Session.GetString("CurrentJobId");
+        if (!string.IsNullOrEmpty(jobIdJson))
+        {
+            try
+            {
+                var jobId = JsonSerializer.Deserialize<string>(jobIdJson);
+                if (!string.IsNullOrEmpty(jobId))
+                {
+                    if (_queueService.CancelJob(jobId))
+                    {
+                        TempData["SuccessMessage"] = "Job cancelled successfully. Showing emails processed so far.";
+                    }
+                }
+            }
+            catch { }
+        }
+        return RedirectToPage();
     }
 
     public IActionResult OnPostDownloadFailed()

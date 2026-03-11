@@ -127,6 +127,10 @@ public class BackgroundEmailSendService : BackgroundService
                 }
 
                 _queueService.UpdateJob(job);
+
+                // Add a small delay between emails to prevent rate-limiting or network burst issues
+                // This normalizes sending speed between Docker (Linux) and Local (.NET on Windows)
+                await Task.Delay(500, cancellationToken);
             }
 
             // Job completed successfully

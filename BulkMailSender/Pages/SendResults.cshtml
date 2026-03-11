@@ -21,7 +21,7 @@
             </a>
         </div>
 
-        @if (Model.Results == null)
+        @if (Model.Results == null && !Model.IsJobActive)
         {
             <div class="alert alert-warning">
                 <i class="bi bi-exclamation-triangle"></i> No send results found. Please complete the send process first.
@@ -32,6 +32,48 @@
         }
         else
         {
+            @if (TempData["SuccessMessage"] != null)
+            {
+                <div class="alert alert-success alert-dismissible fade show">
+                    <i class="bi bi-check-circle"></i> @TempData["SuccessMessage"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+
+            <!-- Job Queue Status -->
+            <div class="card mb-4 border-primary shadow-sm" id="job-status-card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-gear-wide-connected"></i> Job Queue Status</h5>
+                    <div id="cancel-job-container">
+                        @if (Model.IsJobActive)
+                        {
+                            <form method="post" asp-page-handler="CancelJob" onsubmit="return confirm('Are you sure you want to cancel the active job?');">
+                                <button type="submit" class="btn btn-sm btn-danger"><i class="bi bi-stop-circle"></i> Cancel Job</button>
+                            </form>
+                        }
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-3">
+                            <strong class="d-block mb-1">Status:</strong> 
+                            <span id="job-status-badge" class="badge @(Model.CurrentJobStatus == "Running" || Model.CurrentJobStatus == "Queued" ? "bg-warning text-dark" : "bg-success")">@Model.CurrentJobStatus</span>
+                        </div>
+                        <div class="col-md-9">
+                            <strong class="d-block mb-1">Processing Progress:</strong>
+                            <div class="progress" style="height: 25px;">
+                                @{ 
+                                    var progressPct = Model.TotalJobEmails > 0 ? (Model.ProcessedCount * 100 / Model.TotalJobEmails) : 0; 
+                                }
+                                <div id="job-progress-bar" class="progress-bar progress-bar-striped @(Model.IsJobActive ? "progress-bar-animated" : "") bg-success" role="progressbar" style="width: @progressPct%;" aria-valuenow="@progressPct" aria-valuemin="0" aria-valuemax="100">
+                                    <span id="job-progress-text">@Model.ProcessedCount / @Model.TotalJobEmails Processed (@progressPct%)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Summary Cards -->
             <div class="row g-3 mb-4">
                 <div class="col-md-3">
@@ -189,17 +231,50 @@
                         // Check for changes before updating DOM
                         const newSent = data.sentCount;
                         const newFailed = data.failedCount;
+                        const status = data.status;
+                        const processedCount = data.processedCount || 0;
+                        const totalJobEmails = data.totalJobEmails || 0;
 
                         if (lastSent !== -1 && (newSent !== lastSent || newFailed !== lastFailed)) {
                             updateTable();
                         }
-                        
+
                         lastSent = newSent;
                         lastFailed = newFailed;
 
                         if (sentCount) sentCount.innerText = data.sentCount;
                         if (failedCount) failedCount.innerText = data.failedCount;
                         if (totalCount) totalCount.innerText = data.total;
+
+                        // Update Job Status
+                        const statusBadge = document.getElementById("job-status-badge");
+                        const progressBar = document.getElementById("job-progress-bar");
+                        const progressText = document.getElementById("job-progress-text");
+                        const cancelContainer = document.getElementById("cancel-job-container");
+
+                        if (statusBadge) {
+                            statusBadge.innerText = status;
+                            if (status === 'Running' || status === 'Queued') {
+                                statusBadge.className = 'badge bg-warning text-dark';
+                            } else {
+                                statusBadge.className = 'badge bg-success';
+                            }
+                        }
+
+                        if (progressBar && progressText) {
+                            const pct = totalJobEmails > 0 ? Math.round((processedCount * 100) / totalJobEmails) : 0;
+                            progressBar.style.width = pct + '%';
+                            progressBar.setAttribute('aria-valuenow', pct);
+                            progressText.innerText = processedCount + ' / ' + totalJobEmails + ' Processed (' + pct + '%)';
+
+                            if (data.isCompleted) {
+                                progressBar.classList.remove('progress-bar-animated');
+                            }
+                        }
+
+                        if (cancelContainer && data.isCompleted) {
+                            cancelContainer.innerHTML = ''; // Remove cancel button if job completes
+                        }
 
                         if (data.isCompleted) {
                             if (pollInterval) clearInterval(pollInterval);

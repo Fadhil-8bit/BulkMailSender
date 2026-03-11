@@ -61,6 +61,9 @@ public class BackgroundEmailSendService : BackgroundService
 
             var grouped = job.Recipients.GroupBy(r => r.DebtorCode).OrderBy(g => g.Key).ToList();
 
+            using var smtpClient = new SmtpClient();
+            smtpClient.Timeout = (job.SmtpSettings?.TimeoutSeconds ?? 30) * 1000;
+
             foreach (var group in grouped)
             {
                 // Check for cancellation
@@ -70,6 +73,7 @@ public class BackgroundEmailSendService : BackgroundService
                     job.Status = JobStatus.Cancelled;
                     job.CompletedAt = DateTime.UtcNow;
                     _queueService.UpdateJob(job);
+                    if (smtpClient.IsConnected) await smtpClient.DisconnectAsync(true, CancellationToken.None);
                     return;
                 }
 
@@ -110,8 +114,8 @@ public class BackgroundEmailSendService : BackgroundService
                     continue;
                 }
 
-                // Send email with retry logic
-                bool sent = await SendEmailWithRetryAsync(job, debtorCode, recipientList, attachmentsToAdd, cancellationToken);
+                // Send email with retry logic and passed client
+                bool sent = await SendEmailWithRetryAsync(smtpClient, job, debtorCode, recipientList, attachmentsToAdd, cancellationToken);
 
                 if (sent)
                 {
@@ -130,9 +134,13 @@ public class BackgroundEmailSendService : BackgroundService
 
                 _queueService.UpdateJob(job);
 
-                // Add a small delay between emails to prevent rate-limiting or network burst issues
-                // This normalizes sending speed between Docker (Linux) and Local (.NET on Windows)
-                await Task.Delay(500, cancellationToken);
+                // Add a gentle delay (e.g. 5s) between emails to explicitly pace the stream over the single connection
+                await Task.Delay(5000, cancellationToken);
+            }
+
+            if (smtpClient.IsConnected)
+            {
+                await smtpClient.DisconnectAsync(true, CancellationToken.None);
             }
 
             // Job completed successfully
@@ -155,6 +163,7 @@ public class BackgroundEmailSendService : BackgroundService
     }
 
     private async Task<bool> SendEmailWithRetryAsync(
+        SmtpClient client,
         EmailSendJob job,
         string debtorCode,
         List<DebtorRecipient> recipientList,
@@ -235,28 +244,31 @@ public class BackgroundEmailSendService : BackgroundService
 
                 msg.Body = builder.ToMessageBody();
 
-                using var client = new SmtpClient();
-                client.Timeout = (job.SmtpSettings?.TimeoutSeconds ?? 30) * 1000;
+                if (!client.IsConnected)
+                {
+                    await client.ConnectAsync(
+                        job.SmtpSettings?.Host ?? "localhost", 
+                        job.SmtpSettings?.Port ?? 587, 
+                        job.SmtpSettings?.EnableSsl == true ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto, 
+                        cancellationToken);
+                }
 
-                await client.ConnectAsync(
-                    job.SmtpSettings?.Host ?? "localhost", 
-                    job.SmtpSettings?.Port ?? 587, 
-                    job.SmtpSettings?.EnableSsl == true ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto, 
-                    cancellationToken);
-
-                if (!string.IsNullOrWhiteSpace(job.SmtpSettings?.Username))
+                if (!client.IsAuthenticated && !string.IsNullOrWhiteSpace(job.SmtpSettings?.Username))
                 {
                     await client.AuthenticateAsync(job.SmtpSettings.Username, job.SmtpSettings.Password ?? "", cancellationToken);
                 }
 
                 await client.SendAsync(msg, cancellationToken);
-                await client.DisconnectAsync(true, cancellationToken);
+                // Intentionally NOT disconnecting here to reuse connection
 
                 _logger.LogInformation("Email sent to debtor {Debtor}", debtorCode);
                 return true;
             }
             catch (Exception ex)
             {
+                // Disconnect so the client reconnects cleanly on next retry
+                try { if (client.IsConnected) await client.DisconnectAsync(false, cancellationToken); } catch { }
+
                 lastException = ex;
                 retryCount++;
 

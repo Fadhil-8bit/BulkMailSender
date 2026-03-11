@@ -134,8 +134,10 @@ public class BackgroundEmailSendService : BackgroundService
 
                 _queueService.UpdateJob(job);
 
-                // Add a gentle delay (e.g. 5s) between emails to explicitly pace the stream over the single connection
-                await Task.Delay(5000, cancellationToken);
+                // Add configured delay between emails to prevent rate-limiting or network burst issues
+                var delaySeconds = job.SmtpSettings?.DelayBetweenEmailsSeconds ?? 2;
+                if (delaySeconds < 0) delaySeconds = 0; // Prevent negative delays
+                await Task.Delay(delaySeconds * 1000, cancellationToken);
             }
 
             if (smtpClient.IsConnected)

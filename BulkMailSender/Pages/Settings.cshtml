@@ -171,11 +171,22 @@
                                 <div class="form-text">Semicolon-separated list. Copies all traffic to these addresses.</div>
                             </div>
 
-                            <div class="mb-3 w-50">
-                                <label class="form-label text-muted small text-uppercase fw-bold">Connection Timeout (Seconds)</label>
-                                <input type="number" class="form-control" asp-for="CurrentSettings.TimeoutSeconds" />
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small text-uppercase fw-bold">Connection Timeout (Seconds)</label>
+                                        <input type="number" class="form-control" asp-for="CurrentSettings.TimeoutSeconds" />
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small text-uppercase fw-bold">Delay Between Emails (Seconds)</label>
+                                        <input type="number" class="form-control" asp-for="CurrentSettings.DelayBetweenEmailsSeconds" />
+                                        <div class="form-text">Prevents SMTP server throttling (Docker bursting fix). Defaults to 2s.</div>
+                                    </div>
+                                </div>
                             </div>
-                            
+
                                 </div>
                             </div>
 

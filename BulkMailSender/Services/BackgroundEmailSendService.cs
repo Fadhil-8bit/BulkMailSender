@@ -1,6 +1,8 @@
 using BulkMailSender.Models;
 using System.Net;
-using System.Net.Mail;
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using MimeKit;
 
 namespace BulkMailSender.Services;
 
@@ -167,14 +169,14 @@ public class BackgroundEmailSendService : BackgroundService
         {
             try
             {
-                using var msg = new MailMessage();
-                msg.From = new MailAddress(
-                    job.SmtpSettings?.FromEmail ?? job.SmtpSettings?.Username ?? "noreply@example.com",
-                    job.SmtpSettings?.FromName ?? "Bulk Mail Sender");
+                using var msg = new MimeMessage();
+                msg.From.Add(new MailboxAddress(
+                    job.SmtpSettings?.FromName ?? "Bulk Mail Sender",
+                    job.SmtpSettings?.FromEmail ?? job.SmtpSettings?.Username ?? "noreply@example.com"));
 
-                foreach (var r in recipientList.Where(x => x.Label == EmailLabel.To)) msg.To.Add(r.Email);
-                foreach (var r in recipientList.Where(x => x.Label == EmailLabel.Cc)) msg.CC.Add(r.Email);
-                foreach (var r in recipientList.Where(x => x.Label == EmailLabel.Bcc)) msg.Bcc.Add(r.Email);
+                foreach (var r in recipientList.Where(x => x.Label == EmailLabel.To)) msg.To.Add(new MailboxAddress("", r.Email));
+                foreach (var r in recipientList.Where(x => x.Label == EmailLabel.Cc)) msg.Cc.Add(new MailboxAddress("", r.Email));
+                foreach (var r in recipientList.Where(x => x.Label == EmailLabel.Bcc)) msg.Bcc.Add(new MailboxAddress("", r.Email));
 
                 // Add global CC recipients
                 if (!string.IsNullOrWhiteSpace(job.SmtpSettings?.GlobalCc))
@@ -188,12 +190,10 @@ public class BackgroundEmailSendService : BackgroundService
                     {
                         try
                         {
-                            // Validate email before adding
-                            var addr = new MailAddress(email);
                             // Avoid duplicate CC
-                            if (!msg.CC.Any(cc => cc.Address.Equals(email, StringComparison.OrdinalIgnoreCase)))
+                            if (!msg.Cc.Any(cc => cc is MailboxAddress ma && ma.Address.Equals(email, StringComparison.OrdinalIgnoreCase)))
                             {
-                                msg.CC.Add(addr);
+                                msg.Cc.Add(new MailboxAddress("", email));
                             }
                         }
                         catch (Exception ex)
@@ -218,28 +218,39 @@ public class BackgroundEmailSendService : BackgroundService
                           .Replace("{debtor code}", debtorPlaceholder);
 
                 msg.Subject = subject;
-                msg.Body = body;
-                msg.IsBodyHtml = false;
+
+                var builder = new BodyBuilder
+                {
+                    TextBody = body
+                };
 
                 // Attach files
                 foreach (var path in attachments.Distinct())
                 {
                     if (File.Exists(path))
                     {
-                        msg.Attachments.Add(new Attachment(path));
+                        builder.Attachments.Add(path);
                     }
                 }
 
-                using var client = new SmtpClient(job.SmtpSettings?.Host ?? "localhost", job.SmtpSettings?.Port ?? 587)
-                {
-                    EnableSsl = job.SmtpSettings?.EnableSsl ?? true,
-                    Timeout = (job.SmtpSettings?.TimeoutSeconds ?? 30) * 1000,
-                    Credentials = string.IsNullOrWhiteSpace(job.SmtpSettings?.Username)
-                        ? null
-                        : new NetworkCredential(job.SmtpSettings.Username, job.SmtpSettings.Password)
-                };
+                msg.Body = builder.ToMessageBody();
 
-                await client.SendMailAsync(msg, cancellationToken);
+                using var client = new SmtpClient();
+                client.Timeout = (job.SmtpSettings?.TimeoutSeconds ?? 30) * 1000;
+
+                await client.ConnectAsync(
+                    job.SmtpSettings?.Host ?? "localhost", 
+                    job.SmtpSettings?.Port ?? 587, 
+                    job.SmtpSettings?.EnableSsl == true ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto, 
+                    cancellationToken);
+
+                if (!string.IsNullOrWhiteSpace(job.SmtpSettings?.Username))
+                {
+                    await client.AuthenticateAsync(job.SmtpSettings.Username, job.SmtpSettings.Password ?? "", cancellationToken);
+                }
+
+                await client.SendAsync(msg, cancellationToken);
+                await client.DisconnectAsync(true, cancellationToken);
 
                 _logger.LogInformation("Email sent to debtor {Debtor}", debtorCode);
                 return true;

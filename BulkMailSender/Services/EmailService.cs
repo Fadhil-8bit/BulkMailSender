@@ -1,5 +1,7 @@
 using System.Net;
-using System.Net.Mail;
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using MimeKit;
 using BulkMailSender.Models;
 
 namespace BulkMailSender.Services;
@@ -22,26 +24,28 @@ public class EmailService : IEmailService
         {
             try
             {
-                using var client = new SmtpClient(settings.Host, settings.Port)
+                using var message = new MimeMessage();
+                message.From.Add(new MailboxAddress(settings.FromName, settings.FromEmail));
+                message.To.Add(new MailboxAddress("", settings.FromEmail));
+                message.Subject = "ATP Bulk Mailer - Test Connection";
+                message.Body = new TextPart("plain")
                 {
-                    Credentials = string.IsNullOrWhiteSpace(settings.Username)
-                        ? null
-                        : new NetworkCredential(settings.Username, settings.Password),
-                    EnableSsl = settings.EnableSsl,
-                    Timeout = settings.TimeoutSeconds * 1000
+                    Text = "This is a test email from ATP Bulk Mail Sender.\n\nIf you receive this, your SMTP settings are correct."
                 };
 
-                using var message = new MailMessage
+                using var client = new SmtpClient();
+                client.Timeout = settings.TimeoutSeconds * 1000;
+
+                await client.ConnectAsync(settings.Host, settings.Port, settings.EnableSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto);
+
+                if (!string.IsNullOrWhiteSpace(settings.Username))
                 {
-                    From = new MailAddress(settings.FromEmail, settings.FromName),
-                    Subject = "ATP Bulk Mailer - Test Connection",
-                    Body = "This is a test email from ATP Bulk Mail Sender.\n\nIf you receive this, your SMTP settings are correct.",
-                    IsBodyHtml = false
-                };
-                message.To.Add(new MailAddress(settings.FromEmail));
-                
-                await client.SendMailAsync(message);
-                
+                    await client.AuthenticateAsync(settings.Username, settings.Password);
+                }
+
+                await client.SendAsync(message);
+                await client.DisconnectAsync(true);
+
                 _logger.LogInformation("SMTP Test Connection Successful: {Host}:{Port}", settings.Host, settings.Port);
                 return true;
             }

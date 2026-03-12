@@ -220,16 +220,16 @@ public class RecipientsModel : PageModel
 
                 foreach (var pair in emailPairs)
                 {
-                    string email = GetCol(cols, pair.ValueIndex);
+                    string emailsRaw = GetCol(cols, pair.ValueIndex);
                     string labelRaw = GetCol(cols, pair.LabelIndex);
 
-                    if (string.IsNullOrWhiteSpace(email) && string.IsNullOrWhiteSpace(labelRaw))
+                    if (string.IsNullOrWhiteSpace(emailsRaw) && string.IsNullOrWhiteSpace(labelRaw))
                     {
                         // No data for this pair; skip silently
                         continue;
                     }
 
-                    if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(labelRaw))
+                    if (string.IsNullOrWhiteSpace(emailsRaw) || string.IsNullOrWhiteSpace(labelRaw))
                     {
                         parseErrors.Add(new ParseError
                         {
@@ -258,28 +258,36 @@ public class RecipientsModel : PageModel
                         continue;
                     }
 
-                    if (!IsValidEmail(email))
-                    {
-                        parseErrors.Add(new ParseError
-                        {
-                            RowNumber = totalRows,
-                            DebtorCode = debtor.Trim(),
-                            ErrorMessage = $"Invalid email format: '{email}' for E-mail {pair.Number}.",
-                            ErrorType = "Email"
-                        });
-                        Errors.Add($"Row {totalRows}: Invalid email '{email}' for E-mail {pair.Number}.");
-                        rowHasAnyError = true;
-                        continue;
-                    }
+                    var emailList = emailsRaw.Split(new[] { " ::: " }, StringSplitOptions.RemoveEmptyEntries)
+                                           .Select(e => e.Trim())
+                                           .Where(e => !string.IsNullOrEmpty(e))
+                                           .ToList();
 
-                    rowRecipients.Add(new DebtorRecipient
+                    foreach (var email in emailList)
                     {
-                        DebtorCode = debtor.Trim(),
-                        OrganizationName = string.IsNullOrWhiteSpace(org) ? null : org.Trim(),
-                        Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
-                        Email = email.Trim(),
-                        Label = label.Value
-                    });
+                        if (!IsValidEmail(email))
+                        {
+                            parseErrors.Add(new ParseError
+                            {
+                                RowNumber = totalRows,
+                                DebtorCode = debtor.Trim(),
+                                ErrorMessage = $"Invalid email format: '{email}' for E-mail {pair.Number}.",
+                                ErrorType = "Email"
+                            });
+                            Errors.Add($"Row {totalRows}: Invalid email '{email}' for E-mail {pair.Number}.");
+                            rowHasAnyError = true;
+                            continue;
+                        }
+
+                        rowRecipients.Add(new DebtorRecipient
+                        {
+                            DebtorCode = debtor.Trim(),
+                            OrganizationName = string.IsNullOrWhiteSpace(org) ? null : org.Trim(),
+                            Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
+                            Email = email,
+                            Label = label.Value
+                        });
+                    }
                 }
 
                 // Only add recipients if row has no errors and has at least one valid email

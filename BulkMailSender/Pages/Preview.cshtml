@@ -5,14 +5,13 @@
 }
 
 <style>
-    .scroll-box { max-height: 450px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: .5rem; padding: 1rem; background: #fff; }
+    .scroll-box { height: 450px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: .5rem; padding: 1rem; background: #fff; }
     .template-preview { white-space: pre-wrap; border: 1px solid #dee2e6; border-radius: .5rem; padding: .75rem; background: #f8f9fa; font-size: 0.9rem; }
     .stat-card { text-align: center; padding: 1rem; border-radius: .5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
     .stat-number { font-size: 2rem; font-weight: bold; margin: 0; }
     .stat-label { font-size: 0.9rem; opacity: 0.9; margin: 0; }
     .nav-tabs .nav-link { color: #495057; font-weight: 500; }
     .nav-tabs .nav-link.active { color: #667eea; border-bottom: 3px solid #667eea; }
-    .action-bar { position: sticky; bottom: 0; background: white; border-top: 2px solid #dee2e6; padding: 1.5rem; margin: -1rem -1rem -1rem -1rem; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 100; }
 </style>
 
 <div class="row">
@@ -120,7 +119,7 @@
                                     var accId = $"previewGroup{i}";
                                     <div class="accordion-item">
                                         <h2 class="accordion-header" id="headingPrev@(i)">
-                                            <button class="accordion-button @(i==0?"":"collapsed")" type="button" data-bs-toggle="collapse" data-bs-target="#@accId" aria-expanded="@(i==0?"true":"false")">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#@accId" aria-expanded="false">
                                                 <strong>@g.Key</strong>
                                                 <span class="ms-3 badge bg-primary">@g.Count() email(s)</span>
                                                 @if (!string.IsNullOrWhiteSpace(first.OrganizationName))
@@ -129,7 +128,7 @@
                                                 }
                                             </button>
                                         </h2>
-                                        <div id="@accId" class="accordion-collapse collapse @(i==0?"show":"")" data-bs-parent="#previewAccordion">
+                                        <div id="@accId" class="accordion-collapse collapse" data-bs-parent="#previewAccordion">
                                             <div class="accordion-body">
                                                 <table class="table table-sm table-hover">
                                                     <thead class="table-light">
@@ -164,19 +163,21 @@
 
                     <!-- Template Tab -->
                     <div class="tab-pane fade" id="template-content" role="tabpanel">
-                        <div class="row g-3">
-                            <div class="col-md-12">
-                                <div class="alert alert-info">
-                                    <i class="bi bi-info-circle"></i> <strong>Email Type:</strong> @Model.Template?.TemplateType &nbsp;|&nbsp; <strong>Period:</strong> @Model.Template?.Period
+                        <div class="scroll-box">
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle"></i> <strong>Email Type:</strong> @Model.Template?.TemplateType &nbsp;|&nbsp; <strong>Period:</strong> @Model.Template?.Period
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-12">
-                                <h5 class="text-primary"><i class="bi bi-envelope"></i> Subject Line</h5>
-                                <div class="template-preview mb-3">@Model.Template?.Subject</div>
-                            </div>
-                            <div class="col-md-12">
-                                <h5 class="text-secondary"><i class="bi bi-file-text"></i> Email Body</h5>
-                                <div class="template-preview" style="max-height: 350px; overflow-y: auto;">@Model.Template?.Body</div>
+                                <div class="col-md-12">
+                                    <h5 class="text-primary"><i class="bi bi-envelope"></i> Subject Line</h5>
+                                    <div class="template-preview mb-3">@Model.Template?.Subject</div>
+                                </div>
+                                <div class="col-md-12">
+                                    <h5 class="text-secondary"><i class="bi bi-file-text"></i> Email Body</h5>
+                                    <div class="template-preview">@Model.Template?.Body</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -236,7 +237,8 @@
                 </div>
 
                 <!-- Action Bar -->
-                <div class="action-bar">
+            </div>
+                <div class="card-footer bg-light py-3 border-top">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <a asp-page="/Recipients" class="btn btn-outline-secondary" id="editRecipientsBtn">
@@ -248,18 +250,16 @@
                         </div>
                         <div>
                             <form method="post" id="sendForm" style="display: inline;">
-                                <button type="submit" asp-page-handler="Send" class="btn btn-success btn-lg" id="sendBtn">
+                                <button type="submit" asp-page-handler="Send" class="btn btn-success btn-lg shadow-sm" id="sendBtn">
                                     <i class="bi bi-send-check"></i> Send All Emails
                                 </button>
                             </form>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
+                </div> 
+            </div> 
+          </div> 
+        </div> 
 @section Scripts {
     <script>
         document.getElementById('sendForm').addEventListener('submit', function(e) {

@@ -10,6 +10,6 @@ public class EmailSettings
     public string FromEmail { get; set; } = string.Empty;
     public string FromName { get; set; } = string.Empty;
     public int TimeoutSeconds { get; set; } = 30;
-    public int DelayBetweenEmailsSeconds { get; set; } = 2; // Add configurable delay
+    public int DelayBetweenEmailsSeconds { get; set; } = 5; // Add configurable delay
     public string GlobalCc { get; set; } = string.Empty; // Semicolon-separated list of global CC emails
 }

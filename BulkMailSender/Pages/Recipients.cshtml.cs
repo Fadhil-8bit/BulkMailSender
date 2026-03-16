@@ -250,7 +250,7 @@ public class RecipientsModel : PageModel
                         {
                             RowNumber = totalRows,
                             DebtorCode = debtor.Trim(),
-                            ErrorMessage = $"Invalid email label '{labelRaw}' for E-mail {pair.Number}. Valid labels: 'Work' (TO), 'View' (CC), 'Private' (BCC).",
+                            ErrorMessage = $"Invalid email label '{labelRaw}' for E-mail {pair.Number}. Valid labels: 'TO', 'CC', 'BCC'.",
                             ErrorType = "Label"
                         });
                         Errors.Add($"Row {totalRows}: Invalid email label '{labelRaw}' for E-mail {pair.Number}.");
@@ -432,18 +432,20 @@ public class RecipientsModel : PageModel
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
 
-        // Remove non-letter characters (e.g., leading '*', punctuation, parentheses) and normalize spacing
+        // Remove non-letter characters and convert to lowercase
         var cleaned = Regex.Replace(raw, "[^A-Za-z]", " ").Trim().ToLowerInvariant();
 
-        // Normalize common tokens
-        if (cleaned.Contains("work"))
+        // Split into words to prevent false matching (e.g., 'bcc' triggering 'cc')
+        var words = cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (words.Contains("to"))
             return EmailLabel.To;
 
-        if (cleaned.Contains("view"))
-            return EmailLabel.Cc;
-
-        if (cleaned.Contains("private"))
+        if (words.Contains("bcc"))
             return EmailLabel.Bcc;
+
+        if (words.Contains("cc"))
+            return EmailLabel.Cc;
 
         return null;
     }

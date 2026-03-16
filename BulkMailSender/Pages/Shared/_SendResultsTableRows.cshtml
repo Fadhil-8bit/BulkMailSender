@@ -11,6 +11,7 @@
         .ToList();
 }
 
+@using BulkMailSender.Utilities
 @foreach (var item in allResults)
 {
     var rowClass = item.Type == "Sent" ? "result-row-success" 
@@ -62,7 +63,7 @@
                 <small class="text-danger">@item.Result.Reason</small>
             }
         </td>
-        <td><small class="text-muted">@item.Result.Timestamp.ToLocalTime().ToString("HH:mm:ss")</small></td>
+        <td><small class="text-muted">@TimeHelper.FormatTimestamp(item.Result.Timestamp)</small></td>
         <td>
             @if (item.Result.RetryCount > 0)
             {

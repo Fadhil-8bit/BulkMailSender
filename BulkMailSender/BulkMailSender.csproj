@@ -18,4 +18,14 @@
     <Folder Include="wwwroot\uploads\" />
   </ItemGroup>
 
+  <!-- Prevent copying uploaded files and App_Data settings into the published output -->
+  <ItemGroup>
+    <Content Update="App_Data\**">
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </Content>
+    <Content Update="wwwroot\uploads\**">
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

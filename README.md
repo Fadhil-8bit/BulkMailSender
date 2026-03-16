@@ -12,7 +12,7 @@ This is a web application developed during my IT Support Internship at ATP Sales
 * **Background Processing:** Sends emails in the background to keep the app responsive, complete with automatic retries for failed deliveries.
 
 <video width="100%" controls>
-  <source src="demo.mp4" type="video/mp4">
+  <source src="BulkMailSender Github Video.mp4" type="video/mp4">
 </video>
 
 ## Tech Stack

@@ -11,6 +11,10 @@ This is a web application developed during my IT Support Internship at ATP Sales
 * **Custom Templates:** Write email templates using dynamic placeholders (like `{DebtorCode}`) for personalization.
 * **Background Processing:** Sends emails in the background to keep the app responsive, complete with automatic retries for failed deliveries.
 
+<video width="100%" controls>
+  <source src="demo.mp4" type="video/mp4">
+</video>
+
 ## Tech Stack
 
 * ASP.NET Core (.NET 10)
